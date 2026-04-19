@@ -47,7 +47,6 @@ class UserAdmin(BaseAdminView, model=User):
         User.role,
         User.created_at,
     ]
-    column_filters = [User.role, User.is_active, User.is_banned]
     form_columns = [
         User.username,
         User.email,
@@ -90,7 +89,6 @@ class MerchantAdmin(BaseAdminView, model=Merchant):
         Merchant.contact_email,
         Merchant.contact_phone,
     ]
-    column_filters = [Merchant.is_verified]
 
 
 class ConsumerProfileAdmin(BaseAdminView, model=ConsumerProfile):
@@ -135,7 +133,6 @@ class SharedProductAdmin(BaseAdminView, model=SharedProduct):
         SharedProduct.is_available,
     ]
     column_searchable_list = [SharedProduct.name, SharedProduct.sku]
-    column_filters = [SharedProduct.is_available]
 
 
 class BidAdmin(BaseAdminView, model=Bid):
@@ -151,7 +148,6 @@ class BidAdmin(BaseAdminView, model=Bid):
         Bid.bid_amount,
     ]
     column_searchable_list = [Bid.status]
-    column_filters = [Bid.status]
 
 
 class AdCampaignAdmin(BaseAdminView, model=AdCampaign):
@@ -168,7 +164,6 @@ class AdCampaignAdmin(BaseAdminView, model=AdCampaign):
         AdCampaign.is_active,
     ]
     column_searchable_list = [AdCampaign.name]
-    column_filters = [AdCampaign.status, AdCampaign.is_active]
 
 
 class AdEventAdmin(BaseAdminView, model=AdEvent):
@@ -185,7 +180,6 @@ class AdEventAdmin(BaseAdminView, model=AdEvent):
         AdEvent.event_time,
     ]
     column_searchable_list = [AdEvent.event_type, AdEvent.anonymous_id]
-    column_filters = [AdEvent.event_type]
 
 
 class CommentAdmin(BaseAdminView, model=Comment):
@@ -202,7 +196,6 @@ class CommentAdmin(BaseAdminView, model=Comment):
         Comment.created_at,
     ]
     column_searchable_list = [Comment.title, Comment.content]
-    column_filters = [Comment.rating]
 
 
 class ChatMessageAdmin(BaseAdminView, model=ChatMessage):
@@ -218,7 +211,6 @@ class ChatMessageAdmin(BaseAdminView, model=ChatMessage):
         ChatMessage.created_at,
     ]
     column_searchable_list = [ChatMessage.content, ChatMessage.context]
-    column_filters = [ChatMessage.message_type, ChatMessage.is_read]
 
 
 class SubscriptionAdmin(BaseAdminView, model=Subscription):
@@ -235,7 +227,6 @@ class SubscriptionAdmin(BaseAdminView, model=Subscription):
         Subscription.is_active,
     ]
     column_searchable_list = [Subscription.subscription_type]
-    column_filters = [Subscription.subscription_type, Subscription.is_active]
 
 
 class APITokenAdmin(BaseAdminView, model=APIToken):
@@ -252,7 +243,6 @@ class APITokenAdmin(BaseAdminView, model=APIToken):
         APIToken.last_used_at,
     ]
     column_searchable_list = [APIToken.name, APIToken.token]
-    column_filters = [APIToken.is_active, APIToken.is_revoked]
 
 
 class WebhookAdmin(BaseAdminView, model=Webhook):
@@ -267,7 +257,6 @@ class WebhookAdmin(BaseAdminView, model=Webhook):
         Webhook.created_at,
     ]
     column_searchable_list = [Webhook.name, Webhook.url]
-    column_filters = [Webhook.is_active]
 
 
 class WebhookLogAdmin(BaseAdminView, model=WebhookLog):
@@ -285,7 +274,6 @@ class WebhookLogAdmin(BaseAdminView, model=WebhookLog):
         WebhookLog.created_at,
     ]
     column_searchable_list = [WebhookLog.event, WebhookLog.error_message]
-    column_filters = [WebhookLog.is_success, WebhookLog.status_code]
 
 
 ADMIN_VIEWS = [

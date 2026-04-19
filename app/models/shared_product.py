@@ -44,6 +44,9 @@ class SharedProduct(BaseModel):
     def __repr__(self):
         return f"<SharedProduct {self.name}>"
 
+    def __str__(self):
+        return self.name
+
 
 class Bid(BaseModel):
     """商家竞价"""

@@ -18,6 +18,7 @@ from app.routers import (
     webhooks,
     openapi,
     categories,
+    portal,
 )
 
 # 创建数据库表
@@ -56,6 +57,7 @@ app.include_router(chat.router)
 app.include_router(webhooks.router)
 app.include_router(openapi.router)
 app.include_router(categories.router)
+app.include_router(portal.router)
 setup_admin(app)
 
 
@@ -65,6 +67,8 @@ def root():
     return {
         "message": "Welcome to MyShared API",
         "docs_url": "/docs",
+        "portal_url": "/portal/login",
+        "admin_url": "/admin",
         "openapi_schema_url": "/openapi.json",
     }
 

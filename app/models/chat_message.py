@@ -25,6 +25,7 @@ class ChatMessage(BaseModel):
     
     # 关系
     user = relationship("User", back_populates="chat_messages")
-    
+    merchant = relationship("Merchant")
+
     def __repr__(self):
         return f"<ChatMessage user_id={self.user_id} merchant_id={self.merchant_id}>"

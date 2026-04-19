@@ -30,6 +30,7 @@ class Comment(BaseModel):
     # 关系
     user = relationship("User", back_populates="comments")
     product = relationship("SharedProduct", back_populates="comments")
-    
+    merchant = relationship("Merchant")
+
     def __repr__(self):
         return f"<Comment user_id={self.user_id} rating={self.rating}>"

@@ -34,6 +34,9 @@ class AdCampaign(BaseModel):
     def __repr__(self):
         return f"<AdCampaign {self.name}>"
 
+    def __str__(self):
+        return self.name
+
 
 # 导入 AdEvent
 from app.models.ad_event import AdEvent  # noqa: E402, F401

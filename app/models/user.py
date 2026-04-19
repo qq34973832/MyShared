@@ -38,12 +38,21 @@ class User(BaseModel):
     def __repr__(self):
         return f"<User {self.username}>"
 
+    def __str__(self):
+        return self.username
+
 
 class UserPermission(BaseModel):
     """用户权限表"""
     __tablename__ = "user_permissions"
-    
+
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     permission = Column(String(100), nullable=False)
-    
+
+    # 关系
+    user = relationship("User")
+
     __table_args__ = (UniqueConstraint('user_id', 'permission', name='uq_user_permission'),)
+
+    def __str__(self):
+        return f"{self.user_id}:{self.permission}"

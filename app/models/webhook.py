@@ -26,6 +26,9 @@ class Webhook(BaseModel):
     def __repr__(self):
         return f"<Webhook {self.name}>"
 
+    def __str__(self):
+        return self.name
+
 
 class WebhookLog(BaseModel):
     """Webhook 日志（用于调试和审计）"""

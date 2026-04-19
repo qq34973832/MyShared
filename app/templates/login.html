@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MyShared - 登录</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: #fff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); padding: 40px; width: 400px; max-width: 90vw; }
+        .login-card h1 { text-align: center; margin-bottom: 8px; color: #1a1a1a; font-size: 28px; }
+        .login-card .subtitle { text-align: center; margin-bottom: 30px; color: #666; font-size: 14px; }
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 6px; font-weight: 500; color: #333; font-size: 14px; }
+        .form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 1px solid #d9d9d9; border-radius: 6px; font-size: 14px; transition: border-color .2s; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #4096ff; box-shadow: 0 0 0 2px rgba(64,150,255,0.1); }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 16px; font-weight: 500; cursor: pointer; transition: all .2s; }
+        .btn-primary { background: #1677ff; color: #fff; }
+        .btn-primary:hover { background: #4096ff; }
+        .btn-register { background: #fff; color: #1677ff; border: 1px solid #1677ff; margin-top: 10px; }
+        .btn-register:hover { background: #f0f5ff; }
+        .error { background: #fff2f0; border: 1px solid #ffccc7; color: #ff4d4f; padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 14px; display: none; }
+        .links { text-align: center; margin-top: 20px; font-size: 13px; color: #999; }
+        .links a { color: #1677ff; text-decoration: none; }
+        .tabs { display: flex; margin-bottom: 24px; border-bottom: 2px solid #f0f0f0; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-size: 15px; color: #999; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all .2s; }
+        .tab.active { color: #1677ff; border-bottom-color: #1677ff; font-weight: 500; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <h1>🛒 MyShared</h1>
+        <p class="subtitle">多商家电商平台</p>
+
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('login')">登录</div>
+            <div class="tab" onclick="switchTab('register')">注册</div>
+        </div>
+
+        <div id="error-box" class="error"></div>
+
+        <!-- 登录表单 -->
+        <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="form-group">
+                <label>邮箱</label>
+                <input type="email" id="login-email" placeholder="请输入邮箱" required>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="login-password" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="btn btn-primary">登录</button>
+        </form>
+
+        <!-- 注册表单 -->
+        <form id="register-form" style="display:none" onsubmit="handleRegister(event)">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="reg-username" placeholder="请输入用户名" required>
+            </div>
+            <div class="form-group">
+                <label>邮箱</label>
+                <input type="email" id="reg-email" placeholder="请输入邮箱" required>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="reg-password" placeholder="请输入密码（至少6位）" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label>角色</label>
+                <select id="reg-role">
+                    <option value="consumer">消费者</option>
+                    <option value="merchant">商户</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">注册</button>
+        </form>
+
+        <div class="links">
+            <p>管理员请访问 <a href="/admin">/admin</a></p>
+            <p style="margin-top:8px">
+                测试账号：alice@test.com / 1234（消费者）<br>
+                lily@test.com / 1234（商户）
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function switchTab(tab) {
+            document.querySelectorAll('.tab').forEach((t,i) => {
+                t.classList.toggle('active', (tab === 'login' && i === 0) || (tab === 'register' && i === 1));
+            });
+            document.getElementById('login-form').style.display = tab === 'login' ? 'block' : 'none';
+            document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+            hideError();
+        }
+
+        function showError(msg) {
+            const box = document.getElementById('error-box');
+            box.textContent = msg;
+            box.style.display = 'block';
+        }
+        function hideError() {
+            document.getElementById('error-box').style.display = 'none';
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            hideError();
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            try {
+                const resp = await fetch('/portal/do-login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email, password})
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    showError(data.detail || '登录失败');
+                    return;
+                }
+                window.location.href = data.redirect;
+            } catch (err) {
+                showError('网络错误，请重试');
+            }
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            hideError();
+            const username = document.getElementById('reg-username').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+            const role = document.getElementById('reg-role').value;
+            try {
+                const resp = await fetch('/portal/do-register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, email, password, role})
+                });
+                const data = await resp.json();
+                if (!resp.ok) {
+                    showError(data.detail || '注册失败');
+                    return;
+                }
+                window.location.href = data.redirect;
+            } catch (err) {
+                showError('网络错误，请重试');
+            }
+        }
+    </script>
+</body>
+</html>

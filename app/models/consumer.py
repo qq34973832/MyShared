@@ -23,3 +23,6 @@ class ConsumerProfile(BaseModel):
     
     def __repr__(self):
         return f"<ConsumerProfile user_id={self.user_id}>"
+
+    def __str__(self):
+        return self.nickname or f"Consumer #{self.user_id}"

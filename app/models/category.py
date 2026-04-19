@@ -26,9 +26,9 @@ class Category(BaseModel):
     merchant = relationship("Merchant", back_populates="categories")
     parent = relationship(
         "Category",
-        remote_side=lambda: [Category.id],
+        remote_side="Category.id",
         backref="children",
-        foreign_keys=lambda: [Category.parent_id],
+        foreign_keys="Category.parent_id",
     )
     products = relationship(
         "SharedProduct", back_populates="category", cascade="all, delete-orphan"
@@ -36,3 +36,6 @@ class Category(BaseModel):
 
     def __repr__(self):
         return f"<Category {self.name}>"
+
+    def __str__(self):
+        return self.name

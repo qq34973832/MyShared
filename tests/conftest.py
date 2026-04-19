@@ -1,10 +1,22 @@
+import os
+
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.core.db import Base
-import app.models  # noqa: F401
 
-# 创建测试数据库
+os.environ.setdefault("DATABASE_URL", "sqlite:///./app-test-bootstrap.db")
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+os.environ.setdefault(
+    "SECRET_KEY", "test-secret-key-test-secret-key-123456"
+)
+os.environ.setdefault("CELERY_BROKER_URL", "redis://localhost:6379/1")
+os.environ.setdefault("CELERY_RESULT_BACKEND", "redis://localhost:6379/2")
+os.environ.setdefault("WEBHOOK_SECRET", "webhook-secret")
+os.environ.setdefault("AUTO_SEED_DATA", "False")
+
+from app.core.db import Base  # noqa: E402
+import app.models  # noqa: E402,F401
+
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
 
 engine = create_engine(

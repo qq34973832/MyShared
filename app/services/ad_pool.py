@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
-from app.models.ad_campaign import AdCampaign, AdEvent
+from app.models.ad_campaign import AdEvent
 from app.core.cache import Cache, CacheKey
-from typing import List, Dict
+from typing import List
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class AdPoolService:
@@ -17,7 +17,7 @@ class AdPoolService:
         """
         # 生成匿名ID：哈希 consumer_id + timestamp
         anonymous_id = hashlib.sha256(
-            f"{consumer_id}:{datetime.utcnow().timestamp()}".encode()
+            f"{consumer_id}:{datetime.now(timezone.utc).timestamp()}".encode()
         ).hexdigest()[:32]
         
         # 缓存标签到匿名ID的映射（不包含消费者ID）
@@ -33,9 +33,9 @@ class AdPoolService:
         返回匹配的广告活动ID列表
         """
         matched_campaigns = []
-        
+
         # 从缓存中扫描所有活跃活动
-        keys = Cache.redis_client.keys(f"{CacheKey.AD_PREFIX}*")
+        keys = Cache.keys(f"{CacheKey.AD_PREFIX}*")
         for key in keys:
             campaign_data = Cache.get(key)
             if campaign_data and isinstance(campaign_data, dict):
@@ -45,7 +45,7 @@ class AdPoolService:
                     campaign_id = int(key.split(":")[-1])
                     if campaign_id not in matched_campaigns:
                         matched_campaigns.append(campaign_id)
-        
+
         return matched_campaigns
     
     @staticmethod

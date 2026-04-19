@@ -47,3 +47,10 @@ class TestUserAPI:
         response = client.get("/health")
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
+
+    def test_docs_page(self, client):
+        """测试本地文档页"""
+        response = client.get("/docs")
+        assert response.status_code == 200
+        assert "API 文档" in response.text
+        assert "/openapi.json" in response.text

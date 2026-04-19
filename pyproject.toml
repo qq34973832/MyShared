@@ -38,3 +38,7 @@ dev = [
     "black==23.12.0",
     "ruff==0.1.8",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["tests*"]

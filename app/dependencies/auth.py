@@ -1,12 +1,9 @@
 from fastapi import Depends, HTTPException, status, Header
-from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.security import decode_token
 from app.models.user import User
 from typing import Optional
-
-security = HTTPBearer(auto_error=False)
 
 
 def get_current_user(
@@ -38,12 +35,20 @@ def get_current_user(
         )
     
     user_id = payload.get("sub")
-    if not user_id:
+    if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
         )
-    
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        ) from exc
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(
@@ -85,7 +90,12 @@ def get_optional_user(
         return None
     
     user_id = payload.get("sub")
-    if not user_id:
+    if user_id is None:
         return None
-    
+
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return None
+
     return db.query(User).filter(User.id == user_id).first()

@@ -4,7 +4,9 @@ from starlette.middleware.sessions import SessionMiddleware
 import app.models  # noqa: F401
 from app.admin import setup_admin
 from app.core.config import get_settings
+from app.core.docs import render_local_docs
 from app.core.db import Base, engine
+from app.core.seed import seed_initial_data
 from app.routers import (
     users,
     consumers,
@@ -20,11 +22,18 @@ from app.routers import (
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
+seed_initial_data()
 
 settings = get_settings()
 
 # 创建 FastAPI 应用
-app = FastAPI(title="MyShared API", description="多商家电商平台后台系统", version="0.1.0")
+app = FastAPI(
+    title="MyShared API",
+    description="多商家电商平台后台系统",
+    version="0.1.0",
+    docs_url=None,
+    redoc_url=None,
+)
 
 # 配置 CORS
 app.add_middleware(
@@ -58,6 +67,11 @@ def root():
         "docs_url": "/docs",
         "openapi_schema_url": "/openapi.json",
     }
+
+
+@app.get("/docs", include_in_schema=False)
+def docs():
+    return render_local_docs(app)
 
 
 @app.get("/health")

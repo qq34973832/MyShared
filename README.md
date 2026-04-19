@@ -39,6 +39,7 @@
 - 💰 **竞价管理** — 浏览平台所有商品并出价竞价，查看竞价记录和竞价详情，支持商品搜索
 - 📂 **分类管理** — 创建和查看商品分类
 - 👤 **个人设置** — 查看账户信息
+- 🔌 **开放接口** — 在门户中申请 API Token、查看/撤销 Token、创建/查看/删除 Webhook
 
 ### 消费者门户功能 (`/portal/consumer`)
 
@@ -48,6 +49,7 @@
 - 🔔 **我的订阅** — 查看所有订阅（商户/分类/商品），支持取消订阅
 - 👤 **消费者档案** — 创建/编辑档案（昵称、头像、兴趣标签）
 - ⚙️ **个人设置** — 查看账户信息
+- 🔌 **开放接口** — 在门户中申请 API Token、查看/撤销 Token、创建/查看/删除 Webhook
 
 ### 核心业务功能
 
@@ -189,6 +191,20 @@ uvicorn app.main:app --reload
 - `POST /comments` — 创建评论
 - `GET /comments/product/{id}` — 商品评论列表
 
+### 开放接口 `/openapi` 与 `/webhooks`
+- `POST /openapi/tokens` — 创建 API Token
+- `GET /openapi/tokens` — 当前用户的 Token 列表（返回脱敏 token）
+- `DELETE /openapi/tokens/{id}` — 撤销 Token
+- `POST /openapi/tokens/{id}/refresh` — 刷新 Token
+- `GET /openapi/tokens/{id}/check?token=...` — 检查 Token 是否有效
+- `POST /webhooks` — 创建 Webhook
+- `GET /webhooks` — 当前用户自己的 Webhook 列表
+- `PUT /webhooks/{id}` — 更新 Webhook
+- `DELETE /webhooks/{id}` — 删除 Webhook
+- `GET /webhooks/logs/{id}` — 查看该 Webhook 的投递日志
+
+> 当前版本中，商户和消费者都可以在门户页面直接管理 Token 与 Webhook。
+
 ## Docker 部署
 
 ```bash
@@ -202,6 +218,18 @@ docker-compose up -d
 ```bash
 pytest -q
 ```
+
+## 本次已验证能力
+
+- 商户门户“开放接口”页可正常打开与提交
+- 消费者门户“开放接口”页可正常打开与提交
+- 商户可成功申请 API Token
+- 消费者可成功申请 API Token
+- Token 可通过 `/openapi/tokens/{id}/check` 校验有效性
+- 已撤销 Token 会返回 `403 Token is revoked`
+- 商户可成功创建、查看、删除自己的 Webhook
+- 消费者可成功创建、查看、删除自己的 Webhook
+- Webhook 列表已按当前登录用户隔离，互相不可见
 
 ## 技术栈
 

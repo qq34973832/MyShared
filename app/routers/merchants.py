@@ -14,6 +14,16 @@ from app.dependencies.role import require_merchant
 router = APIRouter(prefix="/merchants", tags=["merchants"])
 
 
+@router.get("", response_model=list[MerchantResponse])
+def list_merchants(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """公开的商户列表"""
+    return db.query(Merchant).order_by(Merchant.id).offset(skip).limit(limit).all()
+
+
 @router.post("/register", response_model=MerchantResponse)
 def register_merchant(
     merchant_in: MerchantCreate,

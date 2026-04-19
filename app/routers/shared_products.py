@@ -15,6 +15,47 @@ from app.services.bidding import BiddingService
 router = APIRouter(prefix="/products", tags=["products"])
 
 
+@router.get("", response_model=list[SharedProductResponse])
+def list_products(
+    category_id: int = Query(None, description="按分类筛选"),
+    merchant_id: int = Query(None, description="按商户筛选"),
+    keyword: str = Query(None, description="搜索关键词"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+):
+    """公开的商品列表（支持按分类、商户、关键词筛选）"""
+    q = db.query(SharedProduct).filter(SharedProduct.is_available == True)
+    if category_id is not None:
+        q = q.filter(SharedProduct.category_id == category_id)
+    if merchant_id is not None:
+        q = q.filter(SharedProduct.merchant_id == merchant_id)
+    if keyword:
+        q = q.filter(SharedProduct.name.contains(keyword))
+    return q.order_by(SharedProduct.id.desc()).offset(skip).limit(limit).all()
+
+
+@router.get("/my", response_model=list[SharedProductResponse])
+def list_my_products(
+    merchant: User = Depends(require_merchant),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    """当前商户的商品列表"""
+    merchant_info = db.query(Merchant).filter(Merchant.user_id == merchant.id).first()
+    if not merchant_info:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    return (
+        db.query(SharedProduct)
+        .filter(SharedProduct.merchant_id == merchant_info.id)
+        .order_by(SharedProduct.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
 @router.post("", response_model=SharedProductResponse)
 def create_product(
     product_in: SharedProductCreate,
@@ -115,6 +156,23 @@ def place_bid(
     )
     
     return bid
+
+
+@router.get("/bids/my", response_model=list[BidResponse])
+def list_my_bids(
+    merchant: User = Depends(require_merchant),
+    db: Session = Depends(get_db),
+):
+    """获取当前商户的所有出价记录"""
+    merchant_info = db.query(Merchant).filter(Merchant.user_id == merchant.id).first()
+    if not merchant_info:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    return (
+        db.query(Bid)
+        .filter(Bid.merchant_id == merchant_info.id)
+        .order_by(Bid.id.desc())
+        .all()
+    )
 
 
 @router.get("/bids/{product_id}", response_model=BiddingResultResponse)

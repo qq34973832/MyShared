@@ -108,7 +108,17 @@
             <!-- 竞价管理 -->
             <div id="section-bids" class="section">
                 <div class="card">
-                    <h3>出价记录</h3>
+                    <h3>💰 对其他商品出价</h3>
+                    <p style="color:#666;font-size:13px;margin-bottom:16px">浏览平台上其他商户的商品，提交您的竞价。出价最低者可获得该商品的优先展示权。</p>
+                    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+                        <input type="text" id="bid-search-keyword" placeholder="搜索商品名称..." style="padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;width:220px">
+                        <button class="btn-primary-sm" onclick="loadBiddableProducts()">搜索</button>
+                        <button class="btn-sm" onclick="loadBiddableProducts('')">显示全部</button>
+                    </div>
+                    <div id="biddable-products-list"></div>
+                </div>
+                <div class="card">
+                    <h3>📋 我的出价记录</h3>
                     <div id="bids-list"><p class="empty">暂无出价记录</p></div>
                 </div>
             </div>
@@ -190,6 +200,7 @@
             event.target.classList.add('active');
             if (name === 'products') loadProducts();
             if (name === 'shop') loadShop();
+            if (name === 'bids') { loadBiddableProducts(); loadMyBids(); }
             if (name === 'categories') loadCategories();
             if (name === 'profile') loadProfile();
         }
@@ -222,6 +233,19 @@
                 document.getElementById('stat-reviews').textContent = shop.total_reviews || 0;
                 document.getElementById('stat-verified').textContent = shop.is_verified ? '✅ 已认证' : '⏳ 未认证';
             }
+            // Load recent products on dashboard
+            const recentProducts = await api('/products/my');
+            const rpContainer = document.getElementById('recent-products-list');
+            if (recentProducts && recentProducts.length > 0) {
+                let html = '<table><tr><th>名称</th><th>现价</th><th>库存</th><th>销量</th></tr>';
+                recentProducts.slice(0, 5).forEach(p => {
+                    html += `<tr><td>${p.name}</td><td style="color:#f5222d">¥${p.current_price}</td><td>${p.stock}</td><td>${p.sales_count}</td></tr>`;
+                });
+                html += '</table>';
+                rpContainer.innerHTML = html;
+            } else {
+                rpContainer.innerHTML = '<p class="empty">暂无商品</p>';
+            }
         }
 
         async function loadShop() {
@@ -244,11 +268,35 @@
         }
 
         async function loadProducts() {
-            const shop = await api('/merchants/me');
             const container = document.getElementById('products-list');
-            if (!shop) { container.innerHTML = '<p class="empty">请先注册店铺</p>'; return; }
-            // Fetch products via public list (we don't have a merchant-specific list endpoint, show all for now)
-            container.innerHTML = '<p class="empty">商品列表已加载（通过商品管理接口添加）</p>';
+            const products = await api('/products/my');
+            if (!products || products.length === 0) { container.innerHTML = '<p class="empty">暂无商品，点击右上角添加</p>'; return; }
+            let html = '<table><tr><th>ID</th><th>名称</th><th>SKU</th><th>现价</th><th>原价</th><th>库存</th><th>销量</th><th>状态</th><th>操作</th></tr>';
+            products.forEach(p => {
+                html += `<tr>
+                    <td>${p.id}</td>
+                    <td>${p.name}</td>
+                    <td>${p.sku||'-'}</td>
+                    <td style="color:#f5222d;font-weight:600">¥${p.current_price}</td>
+                    <td style="color:#999;text-decoration:line-through">¥${p.original_price}</td>
+                    <td>${p.stock}</td>
+                    <td>${p.sales_count}</td>
+                    <td>${p.is_available?'<span class="badge badge-green">在售</span>':'<span class="badge badge-orange">下架</span>'}</td>
+                    <td><button class="btn-sm" onclick="editProduct(${p.id})">编辑</button></td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function editProduct(id) {
+            const newPrice = prompt('输入新价格：');
+            if (!newPrice) return;
+            const newStock = prompt('输入新库存（留空不修改）：');
+            const body = { current_price: parseFloat(newPrice) };
+            if (newStock) body.stock = parseInt(newStock);
+            const result = await api('/products/'+id, 'PUT', body);
+            if (result) { alert('更新成功'); loadProducts(); }
         }
 
         async function addProduct() {
@@ -311,6 +359,90 @@
                     <tr><th>状态</th><td>${user.is_active?'✅ 活跃':'❌ 未激活'}</td></tr>
                     <tr><th>注册时间</th><td>${new Date(user.created_at).toLocaleString()}</td></tr>
                 </table>`;
+        }
+
+        // === 竞价管理 ===
+        async function loadBiddableProducts(kw) {
+            const keyword = kw !== undefined ? kw : (document.getElementById('bid-search-keyword').value || '');
+            let url = '/products?limit=100';
+            if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
+            const products = await api(url);
+            const container = document.getElementById('biddable-products-list');
+            if (!products || products.length === 0) {
+                container.innerHTML = '<p class="empty">暂无可竞价的商品</p>';
+                return;
+            }
+            let html = '<table><tr><th>商品</th><th>原价</th><th>当前价</th><th>平台最低价</th><th>库存</th><th>操作</th></tr>';
+            products.forEach(p => {
+                const minPrice = p.min_platform_price ? '¥'+p.min_platform_price : '-';
+                html += `<tr>
+                    <td><strong>${p.name}</strong><br><span style="color:#999;font-size:12px">ID:${p.id} | SKU:${p.sku||'-'}</span></td>
+                    <td style="color:#999;text-decoration:line-through">¥${p.original_price}</td>
+                    <td>¥${p.current_price}</td>
+                    <td style="color:#f5222d;font-weight:600">${minPrice}</td>
+                    <td>${p.stock}</td>
+                    <td>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="number" step="0.01" placeholder="出价" id="bid-price-${p.id}" style="width:100px;padding:4px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px">
+                            <button class="btn-primary-sm" onclick="placeBid(${p.id})">出价</button>
+                            <button class="btn-sm" onclick="viewBidHistory(${p.id})" title="查看竞价记录">📊</button>
+                        </div>
+                    </td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function placeBid(productId) {
+            const priceInput = document.getElementById('bid-price-' + productId);
+            const price = parseFloat(priceInput.value);
+            if (!price || price <= 0) { alert('请输入有效的出价金额'); return; }
+            const result = await api('/products/bids', 'POST', { product_id: productId, bid_price: price });
+            if (result) {
+                alert('✅ 出价成功！出价：¥' + price);
+                priceInput.value = '';
+                loadBiddableProducts();
+                loadMyBids();
+            }
+        }
+
+        async function viewBidHistory(productId) {
+            const result = await api('/products/bids/' + productId);
+            if (!result) return;
+            let msg = `商品：${result.product_name}\n平台最低价：¥${result.min_platform_price}\n当前获胜商户ID：${result.winning_merchant_id}\n\n--- 所有出价 ---\n`;
+            if (result.bids && result.bids.length > 0) {
+                result.bids.forEach((b, i) => {
+                    msg += `${i+1}. 商户#${b.merchant_id}  ¥${b.bid_price}  [${b.status}]\n`;
+                });
+            } else {
+                msg += '暂无出价记录';
+            }
+            alert(msg);
+        }
+
+        async function loadMyBids() {
+            const bids = await api('/products/bids/my');
+            const container = document.getElementById('bids-list');
+            if (!bids || bids.length === 0) {
+                container.innerHTML = '<p class="empty">暂无出价记录，去上方商品列表出价吧！</p>';
+                return;
+            }
+            let html = '<table><tr><th>出价ID</th><th>商品ID</th><th>出价金额</th><th>状态</th><th>出价时间</th></tr>';
+            bids.forEach(b => {
+                const statusBadge = b.status === 'active'
+                    ? '<span class="badge badge-green">有效</span>'
+                    : '<span class="badge badge-orange">' + b.status + '</span>';
+                html += `<tr>
+                    <td>${b.id}</td>
+                    <td>${b.product_id} <button class="btn-sm" onclick="viewBidHistory(${b.product_id})" style="margin-left:4px;padding:2px 6px;font-size:11px">查看竞价</button></td>
+                    <td style="color:#f5222d;font-weight:600">¥${b.bid_price}</td>
+                    <td>${statusBadge}</td>
+                    <td>${new Date(b.created_at).toLocaleString()}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
         }
 
         init();

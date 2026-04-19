@@ -63,6 +63,7 @@
         <div class="sidebar">
             <div class="menu-item active" onclick="showSection('dashboard')">📊 概览</div>
             <div class="menu-item" onclick="showSection('products')">🛒 浏览商品</div>
+            <div class="menu-item" onclick="showSection('merchants')">🏪 商户列表</div>
             <div class="menu-item" onclick="showSection('subscriptions')">🔔 我的订阅</div>
             <div class="menu-item" onclick="showSection('myprofile')">👤 我的档案</div>
             <div class="menu-item" onclick="showSection('settings')">⚙️ 个人设置</div>
@@ -84,15 +85,30 @@
             <!-- 浏览商品 -->
             <div id="section-products" class="section">
                 <div class="card">
-                    <h3>全部商品</h3>
-                    <div id="all-products-list"><p class="empty">加载中...</p></div>
+                    <h3>🔍 商品搜索</h3>
+                    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+                        <input type="text" id="search-keyword" placeholder="搜索商品名称..." style="padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;width:240px">
+                        <select id="filter-category" style="padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;width:180px">
+                            <option value="">全部分类</option>
+                        </select>
+                        <button class="btn-primary-sm" onclick="loadAllProducts()">搜索</button>
+                    </div>
+                </div>
+                <div id="products-by-category"></div>
+            </div>
+
+            <!-- 商户列表 -->
+            <div id="section-merchants" class="section">
+                <div class="card">
+                    <h3>🏪 全部商户</h3>
+                    <div id="merchants-list"><p class="empty">加载中...</p></div>
                 </div>
             </div>
 
             <!-- 我的订阅 -->
             <div id="section-subscriptions" class="section">
                 <div class="card">
-                    <h3>我的订阅 <button class="btn-primary-sm" style="float:right" onclick="showAddSubscription()">+ 新建订阅</button></h3>
+                    <h3>我的订阅</h3>
                     <div id="subscriptions-list"><p class="empty">暂无订阅</p></div>
                 </div>
             </div>
@@ -135,29 +151,12 @@
         </div>
     </div>
 
-    <!-- 新建订阅弹窗 -->
-    <div id="modal-subscription" class="modal-overlay">
-        <div class="modal">
-            <h3>新建订阅</h3>
-            <div class="form-group">
-                <label>订阅类型</label>
-                <select id="sub-type" style="width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;">
-                    <option value="merchant">商户</option>
-                    <option value="category">分类</option>
-                    <option value="product">商品</option>
-                </select>
-            </div>
-            <div class="form-group"><label>目标ID</label><input type="number" id="sub-target-id" placeholder="商户/分类/商品的ID"></div>
-            <div class="modal-actions">
-                <button class="btn-sm" onclick="closeModal('modal-subscription')">取消</button>
-                <button class="btn-primary-sm" onclick="createSubscription()">订阅</button>
-            </div>
-        </div>
-    </div>
+    <!-- 新建订阅弹窗 - 不再需要，订阅直接在列表中操作 -->
 
     <script>
         const TOKEN = '{{token}}';
         const headers = {'Content-Type':'application/json','Authorization':'Bearer '+TOKEN};
+        let allCategories = [];
 
         function showSection(name) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -165,84 +164,234 @@
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
             event.target.classList.add('active');
             if (name === 'products') loadAllProducts();
+            if (name === 'merchants') loadMerchants();
             if (name === 'subscriptions') loadSubscriptions();
             if (name === 'myprofile') loadConsumerProfile();
             if (name === 'settings') loadAccountInfo();
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-        function showCreateProfile() { document.getElementById('profile-modal-title').textContent='创建消费者档案'; document.getElementById('modal-profile').classList.add('show'); }
-        function showAddSubscription() { document.getElementById('modal-subscription').classList.add('show'); }
+        function showCreateProfile() { document.getElementById('profile-modal-title').textContent='创建消费者档案'; document.getElementById('profile-submit-btn').setAttribute('onclick','createProfile()'); document.getElementById('modal-profile').classList.add('show'); }
 
         async function api(url, method='GET', body=null) {
             const opts = {method, headers};
             if (body) opts.body = JSON.stringify(body);
             const resp = await fetch(url, opts);
             if (resp.status === 401) { window.location.href = '/portal/login'; return null; }
-            if (!resp.ok) { const e = await resp.json().catch(()=>({})); alert(e.detail||'请求失败'); return null; }
+            if (!resp.ok) { const e = await resp.json().catch(()=>({})); throw new Error(e.detail||'请求失败'); }
             return resp.json();
         }
 
+        async function apiSafe(url, method='GET', body=null) {
+            try { return await api(url, method, body); } catch(e) { return null; }
+        }
+
         async function init() {
-            const user = await api('/users/me');
+            const user = await apiSafe('/users/me');
             if (!user) return;
             document.getElementById('username-display').textContent = user.username + '（消费者）';
 
+            // Load categories for filter dropdown
+            allCategories = await apiSafe('/categories') || [];
+            const sel = document.getElementById('filter-category');
+            allCategories.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                sel.appendChild(opt);
+            });
+
             // Load profile stats
-            const profile = await api('/consumers/profile').catch(()=>null);
+            const profile = await apiSafe('/consumers/profile');
             if (profile) {
                 document.getElementById('stat-nickname').textContent = profile.nickname || user.username;
                 document.getElementById('stat-tags').textContent = (profile.tags||[]).length;
             }
 
             // Load subscriptions count
-            const subs = await api('/consumers/subscriptions').catch(()=>null);
+            const subs = await apiSafe('/consumers/subscriptions');
             if (subs) {
                 document.getElementById('stat-subs').textContent = subs.length;
             }
+
+            // Load recommended products on dashboard
+            const products = await apiSafe('/products');
+            const rpContainer = document.getElementById('recommended-products');
+            if (products && products.length > 0) {
+                rpContainer.innerHTML = products.slice(0, 6).map(p => `
+                    <div class="product-card">
+                        <div style="display:flex;justify-content:space-between;align-items:start">
+                            <div>
+                                <div class="title">${p.name}</div>
+                                <div><span class="price">¥${p.current_price}</span><span class="original-price">¥${p.original_price}</span></div>
+                                <div class="meta">库存: ${p.stock} | 销量: ${p.sales_count}</div>
+                            </div>
+                            <button class="btn-primary-sm" onclick="subscribeProduct(${p.id})" title="订阅此商品">🔔 订阅</button>
+                        </div>
+                    </div>`).join('');
+            }
         }
 
+        // === 商品浏览 ===
         async function loadAllProducts() {
-            const container = document.getElementById('all-products-list');
-            // Try fetching a product by ID (we don't have a list endpoint, show guidance)
-            container.innerHTML = `
-                <p style="color:#666;margin-bottom:16px">输入商品ID查看详情：</p>
-                <div style="display:flex;gap:10px;margin-bottom:20px">
-                    <input type="number" id="search-product-id" placeholder="商品ID" style="padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;width:200px">
-                    <button class="btn-primary-sm" onclick="searchProduct()">查看</button>
-                </div>
-                <div id="product-detail"></div>`;
+            const keyword = document.getElementById('search-keyword').value;
+            const catId = document.getElementById('filter-category').value;
+            let url = '/products?limit=200';
+            if (keyword) url += '&keyword=' + encodeURIComponent(keyword);
+            if (catId) url += '&category_id=' + catId;
+
+            const products = await apiSafe(url);
+            const container = document.getElementById('products-by-category');
+            if (!products || products.length === 0) {
+                container.innerHTML = '<div class="card"><p class="empty">暂无商品</p></div>';
+                return;
+            }
+
+            // Group by category
+            const grouped = {};
+            products.forEach(p => {
+                const catName = (allCategories.find(c => c.id === p.category_id) || {}).name || '未分类';
+                if (!grouped[catName]) grouped[catName] = [];
+                grouped[catName].push(p);
+            });
+
+            let html = '';
+            for (const [catName, prods] of Object.entries(grouped)) {
+                html += `<div class="card"><h3>📂 ${catName}（${prods.length}件商品）</h3>`;
+                prods.forEach(p => {
+                    const desc = p.description ? (p.description.length > 60 ? p.description.substring(0,60)+'...' : p.description) : '暂无描述';
+                    html += `
+                    <div class="product-card">
+                        <div style="display:flex;justify-content:space-between;align-items:start">
+                            <div style="flex:1">
+                                <div class="title">${p.name}</div>
+                                <div><span class="price">¥${p.current_price}</span><span class="original-price">¥${p.original_price}</span></div>
+                                <div class="meta">SKU: ${p.sku||'-'} | 库存: ${p.stock} | 销量: ${p.sales_count}</div>
+                                <p style="margin-top:6px;color:#666;font-size:13px">${desc}</p>
+                            </div>
+                            <div style="display:flex;flex-direction:column;gap:6px;margin-left:16px">
+                                <button class="btn-primary-sm" onclick="subscribeProduct(${p.id})">🔔 订阅商品</button>
+                                <button class="btn-sm" onclick="subscribeMerchant(${p.merchant_id})">🏪 订阅商户</button>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            container.innerHTML = html;
         }
 
-        async function searchProduct() {
-            const id = document.getElementById('search-product-id').value;
-            if (!id) return;
-            const product = await api('/products/'+id);
-            const container = document.getElementById('product-detail');
-            if (!product) { container.innerHTML = '<p class="empty">商品不存在</p>'; return; }
-            container.innerHTML = `
-                <div class="product-card">
-                    <div class="title">${product.name}</div>
-                    <div><span class="price">¥${product.current_price}</span><span class="original-price">¥${product.original_price}</span></div>
-                    <div class="meta">SKU: ${product.sku||'-'} | 库存: ${product.stock} | ID: ${product.id}</div>
-                    <p style="margin-top:8px;color:#666">${product.description||'暂无描述'}</p>
-                </div>`;
-        }
-
-        async function loadSubscriptions() {
-            const subs = await api('/consumers/subscriptions');
-            const container = document.getElementById('subscriptions-list');
-            if (!subs || subs.length === 0) { container.innerHTML = '<p class="empty">暂无订阅</p>'; return; }
-            let html = '<table><tr><th>ID</th><th>类型</th><th>状态</th><th>创建时间</th></tr>';
-            subs.forEach(s => {
-                html += `<tr><td>${s.id}</td><td>${s.subscription_type}</td><td>${s.is_active?'✅ 活跃':'❌ 停用'}</td><td>${new Date(s.created_at).toLocaleString()}</td></tr>`;
+        // === 商户列表 ===
+        async function loadMerchants() {
+            const merchants = await apiSafe('/merchants');
+            const container = document.getElementById('merchants-list');
+            if (!merchants || merchants.length === 0) { container.innerHTML = '<p class="empty">暂无商户</p>'; return; }
+            let html = '<table><tr><th>商户</th><th>描述</th><th>商品数</th><th>评分</th><th>认证</th><th>操作</th></tr>';
+            merchants.forEach(m => {
+                html += `<tr>
+                    <td><strong>${m.shop_name}</strong></td>
+                    <td>${m.shop_description||'-'}</td>
+                    <td>${m.total_products}</td>
+                    <td>${m.rating}/5</td>
+                    <td>${m.is_verified?'✅':'⏳'}</td>
+                    <td>
+                        <button class="btn-primary-sm" onclick="subscribeMerchant(${m.id})" style="margin-right:6px">🔔 订阅</button>
+                        <button class="btn-sm" onclick="viewMerchantProducts(${m.id})">查看商品</button>
+                    </td>
+                </tr>`;
             });
             html += '</table>';
             container.innerHTML = html;
         }
 
+        async function viewMerchantProducts(merchantId) {
+            document.getElementById('filter-category').value = '';
+            document.getElementById('search-keyword').value = '';
+            showSection('products');
+            // Load products filtered by merchant
+            const products = await apiSafe('/products?merchant_id=' + merchantId + '&limit=200');
+            const container = document.getElementById('products-by-category');
+            if (!products || products.length === 0) {
+                container.innerHTML = '<div class="card"><p class="empty">该商户暂无商品</p></div>';
+                return;
+            }
+            const grouped = {};
+            products.forEach(p => {
+                const catName = (allCategories.find(c => c.id === p.category_id) || {}).name || '未分类';
+                if (!grouped[catName]) grouped[catName] = [];
+                grouped[catName].push(p);
+            });
+            let html = '';
+            for (const [catName, prods] of Object.entries(grouped)) {
+                html += `<div class="card"><h3>📂 ${catName}（${prods.length}件商品）</h3>`;
+                prods.forEach(p => {
+                    html += `<div class="product-card">
+                        <div style="display:flex;justify-content:space-between;align-items:start">
+                            <div style="flex:1">
+                                <div class="title">${p.name}</div>
+                                <div><span class="price">¥${p.current_price}</span><span class="original-price">¥${p.original_price}</span></div>
+                                <div class="meta">库存: ${p.stock} | 销量: ${p.sales_count}</div>
+                            </div>
+                            <button class="btn-primary-sm" onclick="subscribeProduct(${p.id})">🔔 订阅</button>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+            }
+            container.innerHTML = html;
+        }
+
+        // === 一键订阅 ===
+        async function subscribeProduct(productId) {
+            try {
+                await api('/consumers/subscriptions', 'POST', { subscription_type: 'product', product_id: productId });
+                alert('✅ 商品订阅成功！');
+            } catch(e) { alert(e.message); }
+        }
+        async function subscribeMerchant(merchantId) {
+            try {
+                await api('/consumers/subscriptions', 'POST', { subscription_type: 'merchant', merchant_id: merchantId });
+                alert('✅ 商户订阅成功！');
+            } catch(e) { alert(e.message); }
+        }
+        async function subscribeCategory(categoryId) {
+            try {
+                await api('/consumers/subscriptions', 'POST', { subscription_type: 'category', category_id: categoryId });
+                alert('✅ 分类订阅成功！');
+            } catch(e) { alert(e.message); }
+        }
+
+        // === 订阅列表 ===
+        async function loadSubscriptions() {
+            const subs = await apiSafe('/consumers/subscriptions');
+            const container = document.getElementById('subscriptions-list');
+            if (!subs || subs.length === 0) { container.innerHTML = '<p class="empty">暂无订阅，去商品或商户页面点击"订阅"按钮吧！</p>'; return; }
+            let html = '<table><tr><th>ID</th><th>类型</th><th>状态</th><th>创建时间</th><th>操作</th></tr>';
+            const typeMap = {merchant:'🏪 商户', category:'📂 分类', product:'📦 商品'};
+            subs.forEach(s => {
+                html += `<tr>
+                    <td>${s.id}</td>
+                    <td>${typeMap[s.subscription_type]||s.subscription_type}</td>
+                    <td>${s.is_active?'<span class="badge badge-green">活跃</span>':'<span class="badge badge-orange">停用</span>'}</td>
+                    <td>${new Date(s.created_at).toLocaleString()}</td>
+                    <td><button class="btn-sm" onclick="cancelSubscription(${s.id})" style="color:#ff4d4f;border-color:#ff4d4f">取消订阅</button></td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function cancelSubscription(id) {
+            if (!confirm('确定取消此订阅？')) return;
+            try {
+                const resp = await fetch('/consumers/subscriptions/'+id, {method:'DELETE', headers});
+                if (resp.ok || resp.status === 204) { alert('已取消'); loadSubscriptions(); }
+                else { const e = await resp.json().catch(()=>({})); alert(e.detail||'取消失败'); }
+            } catch(e) { alert('网络错误'); }
+        }
+
         async function loadConsumerProfile() {
-            const profile = await api('/consumers/profile');
+            const profile = await apiSafe('/consumers/profile');
             const display = document.getElementById('consumer-profile-display');
             const notCreated = document.getElementById('profile-not-created');
             if (!profile) { display.style.display='none'; notCreated.style.display='block'; return; }
@@ -271,7 +420,7 @@
                 avatar_url: document.getElementById('prof-avatar').value || null,
                 tags: tags
             };
-            const result = await api('/consumers/profile', 'POST', data);
+            const result = await apiSafe('/consumers/profile', 'POST', data);
             if (result) { alert('档案创建成功！'); closeModal('modal-profile'); loadConsumerProfile(); }
         }
 
@@ -282,24 +431,12 @@
                 avatar_url: document.getElementById('prof-avatar').value || null,
                 tags: tags.length > 0 ? tags : null
             };
-            const result = await api('/consumers/profile', 'PUT', data);
+            const result = await apiSafe('/consumers/profile', 'PUT', data);
             if (result) { alert('档案更新成功！'); closeModal('modal-profile'); loadConsumerProfile(); }
         }
 
-        async function createSubscription() {
-            const type = document.getElementById('sub-type').value;
-            const targetId = parseInt(document.getElementById('sub-target-id').value);
-            if (!targetId) { alert('请输入目标ID'); return; }
-            const data = { subscription_type: type };
-            if (type === 'merchant') data.merchant_id = targetId;
-            else if (type === 'category') data.category_id = targetId;
-            else if (type === 'product') data.product_id = targetId;
-            const result = await api('/consumers/subscriptions', 'POST', data);
-            if (result) { alert('订阅成功！'); closeModal('modal-subscription'); loadSubscriptions(); }
-        }
-
         async function loadAccountInfo() {
-            const user = await api('/users/me');
+            const user = await apiSafe('/users/me');
             if (!user) return;
             document.getElementById('account-info').innerHTML = `
                 <table>

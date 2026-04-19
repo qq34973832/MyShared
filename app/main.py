@@ -5,7 +5,18 @@ import app.models  # noqa: F401
 from app.admin import setup_admin
 from app.core.config import get_settings
 from app.core.db import Base, engine
-from app.routers import users, consumers, merchants, shared_products, ads, comments, chat, webhooks, openapi, categories
+from app.routers import (
+    users,
+    consumers,
+    merchants,
+    shared_products,
+    ads,
+    comments,
+    chat,
+    webhooks,
+    openapi,
+    categories,
+)
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
@@ -13,11 +24,7 @@ Base.metadata.create_all(bind=engine)
 settings = get_settings()
 
 # 创建 FastAPI 应用
-app = FastAPI(
-    title="MyShared API",
-    description="多商家电商平台后台系统",
-    version="0.1.0"
-)
+app = FastAPI(title="MyShared API", description="多商家电商平台后台系统", version="0.1.0")
 
 # 配置 CORS
 app.add_middleware(
@@ -49,24 +56,17 @@ def root():
     return {
         "message": "Welcome to MyShared API",
         "docs_url": "/docs",
-        "openapi_schema_url": "/openapi.json"
+        "openapi_schema_url": "/openapi.json",
     }
 
 
 @app.get("/health")
 def health_check():
     """健康检查"""
-    return {
-        "status": "healthy",
-        "message": "Service is running"
-    }
+    return {"status": "healthy", "message": "Service is running"}
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.debug
-    )
+
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=settings.debug)

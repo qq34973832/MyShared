@@ -21,10 +21,14 @@ class AdminAuthBackend(AuthenticationBackend):
 
         db = self.session_factory()
         try:
-            user = db.query(User).filter(
-                or_(User.username == identifier, User.email == identifier),
-                User.role == UserRole.ADMIN,
-            ).first()
+            user = (
+                db.query(User)
+                .filter(
+                    or_(User.username == identifier, User.email == identifier),
+                    User.role == UserRole.ADMIN,
+                )
+                .first()
+            )
 
             if not user or not verify_password(password, user.hashed_password):
                 return False

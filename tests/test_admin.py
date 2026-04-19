@@ -24,7 +24,9 @@ class TestAdminConsole:
 
         db = TestingSessionLocal()
         try:
-            admin_user = db.query(User).filter(User.email == "admin@example.com").first()
+            admin_user = (
+                db.query(User).filter(User.email == "admin@example.com").first()
+            )
             admin_user.role = UserRole.ADMIN
             admin_user.hashed_password = hash_password("password123")
             db.commit()

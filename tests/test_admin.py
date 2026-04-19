@@ -4,7 +4,7 @@ from app.models.user import User, UserRole
 
 class TestAdminConsole:
     def test_admin_requires_login(self, client):
-        response = client.get("/admin", follow_redirects=False)
+        response = client.get("/admin/", follow_redirects=False)
 
         assert response.status_code in (302, 307)
         assert "/admin/login" in response.headers["location"]
@@ -39,6 +39,6 @@ class TestAdminConsole:
 
         assert login_response.status_code in (302, 307)
 
-        admin_response = client.get("/admin", follow_redirects=False)
+        admin_response = client.get("/admin/", follow_redirects=False)
 
-        assert admin_response.status_code in (200, 307)
+        assert admin_response.status_code == 200

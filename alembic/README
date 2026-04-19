@@ -1,0 +1,12 @@
+Alembic is a database migrations tool for SQLAlchemy.
+
+Migration scripts are stored in the versions/ directory.
+
+To create a new migration:
+    alembic revision --autogenerate -m "Description of changes"
+
+To apply pending migrations:
+    alembic upgrade head
+
+To revert last migration:
+    alembic downgrade -1

@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: myshared_postgres
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: myshared_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - myshared_network
+
+  # Redis 缓存和消息队列
+  redis:
+    image: redis:7-alpine
+    container_name: myshared_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - myshared_network
+
+  # FastAPI Web 服务
+  web:
+    build: .
+    container_name: myshared_web
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/myshared_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      SECRET_KEY: your-secret-key-change-this
+      DEBUG: "False"
+      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+    networks:
+      - myshared_network
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+  # Celery Worker
+  celery_worker:
+    build: .
+    container_name: myshared_celery_worker
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/myshared_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+    networks:
+      - myshared_network
+    command: celery -A app.tasks worker --loglevel=info
+
+  # Celery Beat (定时任务)
+  celery_beat:
+    build: .
+    container_name: myshared_celery_beat
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres:5432/myshared_db
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - .:/app
+    networks:
+      - myshared_network
+    command: celery -A app.tasks beat --loglevel=info
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  myshared_network:
+    driver: bridge

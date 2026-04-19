@@ -1,0 +1,39 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+.eggs
+
+# 依赖
+venv
+.venv
+ENV
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# 测试
+.pytest_cache
+.coverage
+.tox
+
+# 文档
+docs
+*.md
+
+# Git
+.git
+.gitignore
+
+# 其他
+.env
+.env.*
+test.db
+*.log

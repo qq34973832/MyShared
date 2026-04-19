@@ -7,12 +7,9 @@ from app.models.user import User, UserRole
 
 
 class AdminAuthBackend(AuthenticationBackend):
-    def __init__(self, secret_key: str):
+    def __init__(self, secret_key: str, session_factory=SessionLocal):
         super().__init__(secret_key=secret_key)
-
-    @staticmethod
-    def _get_session_factory(request):
-        return getattr(request.app.state, "admin_session_factory", SessionLocal)
+        self.session_factory = session_factory
 
     async def login(self, request) -> bool:
         form = await request.form()
@@ -22,7 +19,7 @@ class AdminAuthBackend(AuthenticationBackend):
         if not identifier or not password:
             return False
 
-        db = self._get_session_factory(request)()
+        db = self.session_factory()
         try:
             user = db.query(User).filter(
                 or_(User.username == identifier, User.email == identifier),
@@ -49,7 +46,7 @@ class AdminAuthBackend(AuthenticationBackend):
         if not user_id:
             return False
 
-        db = self._get_session_factory(request)()
+        db = self.session_factory()
         try:
             user = db.query(User).filter(User.id == user_id).first()
             return bool(

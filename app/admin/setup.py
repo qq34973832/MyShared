@@ -4,11 +4,12 @@ from sqladmin import Admin
 from app.admin.auth import AdminAuthBackend
 from app.admin.views import ADMIN_VIEWS
 from app.core.config import get_settings
-from app.core.db import engine
+from app.core.db import SessionLocal, engine
 
 
 def setup_admin(app: FastAPI) -> Admin:
     settings = get_settings()
+    app.state.admin_session_factory = SessionLocal
     admin = Admin(
         app=app,
         engine=engine,

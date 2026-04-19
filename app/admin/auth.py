@@ -10,6 +10,10 @@ class AdminAuthBackend(AuthenticationBackend):
     def __init__(self, secret_key: str):
         super().__init__(secret_key=secret_key)
 
+    @staticmethod
+    def _get_session_factory(request):
+        return getattr(request.app.state, "admin_session_factory", SessionLocal)
+
     async def login(self, request) -> bool:
         form = await request.form()
         identifier = (form.get("username") or "").strip()
@@ -18,7 +22,7 @@ class AdminAuthBackend(AuthenticationBackend):
         if not identifier or not password:
             return False
 
-        db = SessionLocal()
+        db = self._get_session_factory(request)()
         try:
             user = db.query(User).filter(
                 or_(User.username == identifier, User.email == identifier),
@@ -45,7 +49,7 @@ class AdminAuthBackend(AuthenticationBackend):
         if not user_id:
             return False
 
-        db = SessionLocal()
+        db = self._get_session_factory(request)()
         try:
             user = db.query(User).filter(User.id == user_id).first()
             return bool(

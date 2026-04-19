@@ -39,7 +39,7 @@ def client(db):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
-    app.state.admin_session_factory = TestingSessionLocal
+    app.state.admin_auth_backend.session_factory = TestingSessionLocal
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

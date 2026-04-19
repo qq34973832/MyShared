@@ -7,8 +7,8 @@ from alembic import context
 import os
 import sys
 
-# Add app directory to path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# Add project root directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import models
 from app.core.db import Base

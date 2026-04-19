@@ -20,7 +20,7 @@ class Category(BaseModel):
         "Category",
         remote_side=lambda: [Category.id],
         backref="children",
-        foreign_keys=[Category.parent_id],
+        foreign_keys=lambda: [Category.parent_id],
     )
     products = relationship("SharedProduct", back_populates="category", cascade="all, delete-orphan")
     

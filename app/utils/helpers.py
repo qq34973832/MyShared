@@ -1,6 +1,6 @@
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 
@@ -19,14 +19,14 @@ def mask_token(token: str, show_chars: int = 4) -> str:
 
 def get_expiration_date(days: int) -> datetime:
     """计算过期日期"""
-    return datetime.utcnow() + timedelta(days=days)
+    return datetime.now(timezone.utc) + timedelta(days=days)
 
 
 def is_token_expired(expires_at: Optional[datetime]) -> bool:
     """检查 Token 是否过期"""
     if not expires_at:
         return False
-    return datetime.utcnow() > expires_at
+    return datetime.now(timezone.utc) > expires_at
 
 
 def paginate(skip: int = 0, limit: int = 20) -> tuple:

@@ -23,17 +23,17 @@ async def websocket_endpoint(websocket: WebSocket, merchant_id: int, token: str 
             if payload:
                 user_id = payload.get("sub", 0)
         
-        await manager.manager.connect(user_id, merchant_id, websocket)
+        await manager.connect(user_id, merchant_id, websocket)
         
         while True:
             data = await websocket.receive_json()
-            await manager.manager.handle_message(user_id, merchant_id, data)
+            await manager.handle_message(user_id, merchant_id, data)
     
     except WebSocketDisconnect:
-        manager.manager.disconnect(user_id, merchant_id)
+        manager.disconnect(user_id, merchant_id)
     except Exception as e:
         print(f"WebSocket error: {e}")
-        manager.manager.disconnect(user_id, merchant_id)
+        manager.disconnect(user_id, merchant_id)
     finally:
         db.close()
 

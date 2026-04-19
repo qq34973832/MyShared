@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-os.environ.setdefault("DATABASE_URL", "sqlite:///./app-test-bootstrap.db")
+os.environ.setdefault("DATABASE_URL", "sqlite:///./conftest-test.db")
 os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
 os.environ.setdefault(
     "SECRET_KEY", "test-secret-key-test-secret-key-123456"

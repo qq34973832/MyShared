@@ -29,6 +29,8 @@ class Cache:
     @classmethod
     def _memory_set(cls, key: str, value: Any, ex: Optional[int] = None):
         expires_at = time.time() + ex if ex else None
+        if not isinstance(value, str):
+            value = str(value)
         cls._memory_store[key] = (value, expires_at)
 
     @classmethod
@@ -52,7 +54,7 @@ class Cache:
         if value:
             try:
                 return json.loads(value)
-            except (TypeError, json.JSONDecodeError):
+            except json.JSONDecodeError:
                 return value
         return None
 

@@ -1,16 +1,10 @@
-from fastapi.testclient import TestClient
-from app.main import app
-
-client = TestClient(app)
-
-
 class TestAdAPI:
     """广告 API 测试"""
 
-    def test_create_ad_campaign(self):
+    def test_create_ad_campaign(self, client):
         """测试创建广告活动"""
         # 注册商家
-        register_response = client.post(
+        client.post(
             "/users/register",
             json={
                 "username": "merchant1",
@@ -22,15 +16,15 @@ class TestAdAPI:
         # TODO: 实现完整的广告测试
         pass
 
-    def test_get_ad_analytics(self):
+    def test_get_ad_analytics(self, client):
         """测试获取广告分析"""
         # TODO: 实现
         pass
 
-    def test_anonymous_ad_pool(self):
+    def test_anonymous_ad_pool(self, client):
         """测试匿名广告池"""
         # 注册消费者
-        register_response = client.post(
+        client.post(
             "/users/register",
             json={
                 "username": "consumer1",

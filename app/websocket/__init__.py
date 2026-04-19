@@ -1,7 +1,7 @@
 from fastapi import WebSocket, WebSocketDisconnect
 from typing import Dict
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from app.core.redis import redis_client
 
 
@@ -24,7 +24,7 @@ class ChatConnectionManager:
             "type": "connection_established",
             "user_id": user_id,
             "merchant_id": merchant_id,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
     
     def disconnect(self, user_id: int, merchant_id: int):

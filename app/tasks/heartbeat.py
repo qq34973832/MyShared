@@ -1,6 +1,6 @@
 from app.tasks import celery_app
 from app.core.redis import redis_client
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 @celery_app.task
@@ -20,7 +20,7 @@ def check_webhook_health():
             recent_success = db_session.query(WebhookLog).filter(
                 WebhookLog.webhook_id == webhook.id,
                 WebhookLog.is_success == True,
-                WebhookLog.created_at > datetime.utcnow() - timedelta(hours=1)
+                WebhookLog.created_at > datetime.now(timezone.utc) - timedelta(hours=1)
             ).first()
             
             # 如果1小时内没有成功记录，标记为不健康
@@ -43,7 +43,7 @@ def cleanup_old_webhook_logs():
         from app.models.webhook import WebhookLog
         
         db_session = SessionLocal()
-        cutoff_date = datetime.utcnow() - timedelta(days=30)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)
         
         db_session.query(WebhookLog).filter(
             WebhookLog.created_at < cutoff_date

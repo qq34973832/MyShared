@@ -9,7 +9,7 @@ from app.schemas.openapi import (
 )
 from app.dependencies.auth import get_current_user
 from app.utils.helpers import generate_api_token, mask_token, is_token_expired
-from datetime import datetime
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/openapi", tags=["openapi"])
 
@@ -97,7 +97,7 @@ def refresh_api_token(
     # 生成新 Token
     new_token = generate_api_token()
     api_token.token = new_token
-    api_token.created_at = datetime.utcnow()
+    api_token.created_at = datetime.now(timezone.utc)
     
     db.commit()
     db.refresh(api_token)
@@ -126,7 +126,7 @@ def check_api_token(
         raise HTTPException(status_code=403, detail="Token is expired")
     
     # 更新最后使用时间
-    api_token.last_used_at = datetime.utcnow()
+    api_token.last_used_at = datetime.now(timezone.utc)
     db.commit()
     
     return {

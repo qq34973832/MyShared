@@ -29,10 +29,10 @@ def cleanup_expired_bids():
     try:
         from app.models.shared_product import Bid
         from datetime import timedelta
-        from datetime import datetime
+        from datetime import datetime, timezone
         
         # 清理一周前的非活跃竞价
-        cutoff = datetime.utcnow() - timedelta(days=7)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
         db.query(Bid).filter(
             Bid.status == "inactive",
             Bid.updated_at < cutoff

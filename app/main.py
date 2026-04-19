@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+import app.models  # noqa: F401
+from app.admin import setup_admin
 from app.core.config import get_settings
 from app.core.db import Base, engine
 from app.routers import users, consumers, merchants, shared_products, ads, comments, chat, webhooks, openapi, categories
@@ -24,6 +27,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 
 # 注册路由
 app.include_router(users.router)
@@ -36,6 +40,7 @@ app.include_router(chat.router)
 app.include_router(webhooks.router)
 app.include_router(openapi.router)
 app.include_router(categories.router)
+setup_admin(app)
 
 
 @app.get("/")

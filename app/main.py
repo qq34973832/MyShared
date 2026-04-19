@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
+from sqlalchemy import text
 import app.models  # noqa: F401
 from app.admin import setup_admin
 from app.core.config import get_settings
@@ -23,6 +24,13 @@ from app.routers import (
 
 # 创建数据库表
 Base.metadata.create_all(bind=engine)
+
+if str(engine.url).startswith("sqlite"):
+    with engine.begin() as conn:
+        columns = [row[1] for row in conn.execute(text("PRAGMA table_info(webhooks)"))]
+        if "expires_at" not in columns:
+            conn.execute(text("ALTER TABLE webhooks ADD COLUMN expires_at DATETIME"))
+
 seed_initial_data()
 
 settings = get_settings()

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, JSON
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Boolean, JSON, DateTime
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 
@@ -16,6 +16,9 @@ class Webhook(BaseModel):
     
     # 认证
     secret = Column(String(255), nullable=False)
+
+    # 过期时间（为空表示永久有效）
+    expires_at = Column(DateTime(timezone=True), nullable=True)
     
     # 状态
     is_active = Column(Boolean, default=True)

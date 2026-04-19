@@ -49,6 +49,8 @@
         .modal .form-group label { display: block; margin-bottom: 4px; font-size: 13px; font-weight: 500; }
         .modal .form-group input { width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; }
         .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px; }
+        .check-grid { display: grid; grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 8px; }
+        .check-item { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #333; }
     </style>
 </head>
 <body>
@@ -61,13 +63,13 @@
     </div>
     <div class="layout">
         <div class="sidebar">
-            <div class="menu-item active" onclick="showSection('dashboard')">📊 概览</div>
-            <div class="menu-item" onclick="showSection('products')">🛒 浏览商品</div>
-            <div class="menu-item" onclick="showSection('merchants')">🏪 商户列表</div>
-            <div class="menu-item" onclick="showSection('subscriptions')">🔔 我的订阅</div>
-            <div class="menu-item" onclick="showSection('myprofile')">👤 我的档案</div>
-            <div class="menu-item" onclick="showSection('settings')">⚙️ 个人设置</div>
-            <div class="menu-item" onclick="showSection('integrations')">🔌 开放接口</div>
+            <div class="menu-item active" onclick="showSection('dashboard', this)">📊 概览</div>
+            <div class="menu-item" onclick="showSection('products', this)">🛒 浏览商品</div>
+            <div class="menu-item" onclick="showSection('merchants', this)">🏪 商户列表</div>
+            <div class="menu-item" onclick="showSection('subscriptions', this)">🔔 我的订阅</div>
+            <div class="menu-item" onclick="showSection('myprofile', this)">👤 我的档案</div>
+            <div class="menu-item" onclick="showSection('settings', this)">⚙️ 个人设置</div>
+            <div class="menu-item" onclick="showSection('integrations', this)">🔌 开放接口</div>
         </div>
         <div class="content">
             <!-- 概览 -->
@@ -167,7 +169,21 @@
         <div class="modal">
             <h3>申请 API Token</h3>
             <div class="form-group"><label>名称</label><input type="text" id="token-name"></div>
-            <div class="form-group"><label>权限范围（逗号分隔）</label><input type="text" id="token-scopes" placeholder="user:read,product:read"></div>
+            <div class="form-group">
+                <label>权限范围</label>
+                <div class="check-grid" id="token-scopes-grid">
+                    <label class="check-item"><input type="checkbox" value="user:read"> user:read</label>
+                    <label class="check-item"><input type="checkbox" value="product:read"> product:read</label>
+                    <label class="check-item"><input type="checkbox" value="merchant:read"> merchant:read</label>
+                    <label class="check-item"><input type="checkbox" value="subscription:read"> subscription:read</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>有效期</label>
+                <div class="check-item" style="margin-bottom:8px"><input type="radio" name="token-expire-mode" value="never" checked onclick="toggleExpireInput('token', false)"> 无期限</div>
+                <div class="check-item"><input type="radio" name="token-expire-mode" value="fixed" onclick="toggleExpireInput('token', true)"> 有期限</div>
+                <input type="datetime-local" id="token-expires-at" style="margin-top:8px;display:none">
+            </div>
             <div class="modal-actions">
                 <button class="btn-sm" onclick="closeModal('modal-token')">取消</button>
                 <button class="btn-primary-sm" onclick="createToken()">提交</button>
@@ -180,7 +196,21 @@
             <h3>创建 Webhook</h3>
             <div class="form-group"><label>名称</label><input type="text" id="webhook-name"></div>
             <div class="form-group"><label>回调地址</label><input type="text" id="webhook-url" placeholder="https://example.com/webhook"></div>
-            <div class="form-group"><label>事件（逗号分隔）</label><input type="text" id="webhook-events" placeholder="subscription.created,profile.updated"></div>
+            <div class="form-group">
+                <label>事件</label>
+                <div class="check-grid" id="webhook-events-grid">
+                    <label class="check-item"><input type="checkbox" value="profile.updated"> profile.updated</label>
+                    <label class="check-item"><input type="checkbox" value="subscription.created"> subscription.created</label>
+                    <label class="check-item"><input type="checkbox" value="subscription.deleted"> subscription.deleted</label>
+                    <label class="check-item"><input type="checkbox" value="comment.created"> comment.created</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>有效期</label>
+                <div class="check-item" style="margin-bottom:8px"><input type="radio" name="webhook-expire-mode" value="never" checked onclick="toggleExpireInput('webhook', false)"> 无期限</div>
+                <div class="check-item"><input type="radio" name="webhook-expire-mode" value="fixed" onclick="toggleExpireInput('webhook', true)"> 有期限</div>
+                <input type="datetime-local" id="webhook-expires-at" style="margin-top:8px;display:none">
+            </div>
             <div class="modal-actions">
                 <button class="btn-sm" onclick="closeModal('modal-webhook')">取消</button>
                 <button class="btn-primary-sm" onclick="createWebhook()">提交</button>
@@ -195,17 +225,38 @@
         const headers = {'Content-Type':'application/json','Authorization':'Bearer '+TOKEN};
         let allCategories = [];
 
-        function showSection(name) {
+        function showSection(name, el) {
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.getElementById('section-'+name).classList.add('active');
             document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
-            event.target.classList.add('active');
+            if (el) el.classList.add('active');
             if (name === 'products') loadAllProducts();
             if (name === 'merchants') loadMerchants();
             if (name === 'subscriptions') loadSubscriptions();
             if (name === 'myprofile') loadConsumerProfile();
             if (name === 'settings') loadAccountInfo();
             if (name === 'integrations') { loadApiTokens(); loadWebhooks(); }
+        }
+
+        function toggleExpireInput(prefix, visible) {
+            const el = document.getElementById(prefix + '-expires-at');
+            if (!el) return;
+            el.style.display = visible ? 'block' : 'none';
+            if (!visible) el.value = '';
+        }
+
+        function getCheckedValues(containerId) {
+            return Array.from(document.querySelectorAll('#' + containerId + ' input[type="checkbox"]:checked')).map(x => x.value);
+        }
+
+        function toIsoDateTime(localValue) {
+            if (!localValue) return null;
+            return new Date(localValue).toISOString();
+        }
+
+        function isFixedExpirySelected(name) {
+            const checked = document.querySelector('input[name="' + name + '"]:checked');
+            return checked && checked.value === 'fixed';
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('show'); }
@@ -347,7 +398,8 @@
         async function viewMerchantProducts(merchantId) {
             document.getElementById('filter-category').value = '';
             document.getElementById('search-keyword').value = '';
-            showSection('products');
+            const productMenu = document.querySelector('.sidebar .menu-item:nth-child(2)');
+            showSection('products', productMenu);
             // Load products filtered by merchant
             const products = await apiSafe('/products?merchant_id=' + merchantId + '&limit=200');
             const container = document.getElementById('products-by-category');
@@ -499,7 +551,7 @@
                     <td>${t.name || '-'}</td>
                     <td><code>${t.token}</code></td>
                     <td>${(t.scopes || []).join(', ') || '-'}</td>
-                    <td>${t.is_revoked ? '<span class="badge badge-orange">已撤销</span>' : '<span class="badge badge-green">有效</span>'}</td>
+                    <td>${t.is_revoked ? '<span class="badge badge-orange">已撤销</span>' : '<span class="badge badge-green">有效</span>'}${t.expires_at ? '<br><span style="color:#999;font-size:12px">到期：' + new Date(t.expires_at).toLocaleString() + '</span>' : '<br><span style="color:#999;font-size:12px">无期限</span>'}</td>
                     <td>${t.is_revoked ? '-' : `<button class="btn-sm" onclick="revokeToken(${t.id})">撤销</button>`}</td>
                 </tr>`;
             });
@@ -508,10 +560,12 @@
         }
 
         async function createToken() {
-            const scopes = (document.getElementById('token-scopes').value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const scopes = getCheckedValues('token-scopes-grid');
+            if (isFixedExpirySelected('token-expire-mode') && !document.getElementById('token-expires-at').value) { alert('请选择 Token 到期时间'); return; }
             const data = {
                 name: document.getElementById('token-name').value || null,
-                scopes: scopes
+                scopes: scopes,
+                expires_at: toIsoDateTime(document.getElementById('token-expires-at').value)
             };
             if (scopes.length === 0) { alert('请至少填写一个 scope'); return; }
             try {
@@ -548,7 +602,7 @@
                     <td>${w.name}</td>
                     <td style="max-width:260px;word-break:break-all">${w.url}</td>
                     <td>${(w.events || []).join(', ')}</td>
-                    <td>${w.is_active ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-orange">停用</span>'}</td>
+                    <td>${w.is_active ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-orange">停用</span>'}${w.expires_at ? '<br><span style="color:#999;font-size:12px">到期：' + new Date(w.expires_at).toLocaleString() + '</span>' : '<br><span style="color:#999;font-size:12px">无期限</span>'}</td>
                     <td><button class="btn-sm" onclick="deleteWebhook(${w.id})">删除</button></td>
                 </tr>`;
             });
@@ -557,11 +611,13 @@
         }
 
         async function createWebhook() {
-            const events = (document.getElementById('webhook-events').value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const events = getCheckedValues('webhook-events-grid');
+            if (isFixedExpirySelected('webhook-expire-mode') && !document.getElementById('webhook-expires-at').value) { alert('请选择 Webhook 到期时间'); return; }
             const data = {
                 name: document.getElementById('webhook-name').value,
                 url: document.getElementById('webhook-url').value,
-                events: events
+                events: events,
+                expires_at: toIsoDateTime(document.getElementById('webhook-expires-at').value)
             };
             if (!data.name || !data.url || events.length === 0) { alert('请填写名称、URL 和事件'); return; }
             try {

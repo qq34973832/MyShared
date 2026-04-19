@@ -26,6 +26,8 @@ def is_token_expired(expires_at: Optional[datetime]) -> bool:
     """检查 Token 是否过期"""
     if not expires_at:
         return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
     return datetime.now(timezone.utc) > expires_at
 
 

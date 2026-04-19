@@ -40,6 +40,9 @@
 - 📂 **分类管理** — 创建和查看商品分类
 - 👤 **个人设置** — 查看账户信息
 - 🔌 **开放接口** — 在门户中申请 API Token、查看/撤销 Token、创建/查看/删除 Webhook
+  - Token 支持 **无期限** / **有期限**
+  - Webhook 支持 **无期限** / **有期限**
+  - Scope 权限改为 **勾选式选择**，避免手写出错
 
 ### 消费者门户功能 (`/portal/consumer`)
 
@@ -50,6 +53,9 @@
 - 👤 **消费者档案** — 创建/编辑档案（昵称、头像、兴趣标签）
 - ⚙️ **个人设置** — 查看账户信息
 - 🔌 **开放接口** — 在门户中申请 API Token、查看/撤销 Token、创建/查看/删除 Webhook
+  - Token 支持 **无期限** / **有期限**
+  - Webhook 支持 **无期限** / **有期限**
+  - Scope 权限改为 **勾选式选择**，避免手写出错
 
 ### 核心业务功能
 
@@ -204,6 +210,12 @@ uvicorn app.main:app --reload
 - `GET /webhooks/logs/{id}` — 查看该 Webhook 的投递日志
 
 > 当前版本中，商户和消费者都可以在门户页面直接管理 Token 与 Webhook。
+>
+> 门户中创建 Token / Webhook 时：
+> - 可选“无期限”或“有期限”
+> - 选择“有期限”后必须填写到期时间
+> - Token 的 scope 权限为复选框
+> - Webhook 的事件类型为复选框
 
 ## Docker 部署
 
@@ -225,11 +237,27 @@ pytest -q
 - 消费者门户“开放接口”页可正常打开与提交
 - 商户可成功申请 API Token
 - 消费者可成功申请 API Token
+- 商户可成功申请**有期限** Token
+- 消费者可成功申请**无期限** Token
 - Token 可通过 `/openapi/tokens/{id}/check` 校验有效性
+- 已过期 Token 会被正确识别为失效
 - 已撤销 Token 会返回 `403 Token is revoked`
 - 商户可成功创建、查看、删除自己的 Webhook
 - 消费者可成功创建、查看、删除自己的 Webhook
+- 商户可成功创建**有期限** Webhook
+- 消费者可成功创建**无期限** Webhook
 - Webhook 列表已按当前登录用户隔离，互相不可见
+
+## 本轮排查并修复的问题
+
+- 修复门户模板中弹窗嵌套错误，导致“申请 Token / 新建 Webhook”按钮看似无效
+- 修复门户菜单切换依赖全局 `event` 的脆弱写法，改为显式传入点击元素
+- 为 Token / Webhook 增加期限配置，并在列表中显示“无期限 / 到期时间”
+- 将 Token 的 scope 输入由手写改为复选框
+- 将 Webhook 的事件输入由手写改为复选框
+- 增加“选择固定期限但未填写时间”的前端校验
+- 修复 SQLite 下过期 Token 校验的时区比较错误（naive/aware datetime）
+- 为现有 SQLite 数据库自动补充 `webhooks.expires_at` 字段，避免手工迁移
 
 ## 技术栈
 

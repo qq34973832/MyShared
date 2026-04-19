@@ -31,6 +31,7 @@ def _serialize_webhook(user_id: int, webhook: Webhook) -> dict:
         "url": webhook.url,
         "events": webhook.events,
         "is_active": webhook.is_active,
+        "expires_at": getattr(webhook, "expires_at", None),
         "created_at": webhook.created_at,
     }
 
@@ -51,6 +52,9 @@ def create_webhook(
         secret=generate_api_token(32),
         is_active=True
     )
+
+    if hasattr(webhook, "expires_at"):
+        webhook.expires_at = webhook_in.expires_at
     
     db.add(webhook)
     db.commit()
@@ -96,6 +100,8 @@ def update_webhook(
         webhook.events = webhook_in.events
     if webhook_in.is_active is not None:
         webhook.is_active = webhook_in.is_active
+    if hasattr(webhook, "expires_at"):
+        webhook.expires_at = webhook_in.expires_at
     
     db.commit()
     db.refresh(webhook)

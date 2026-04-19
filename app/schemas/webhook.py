@@ -7,6 +7,7 @@ class WebhookCreate(BaseModel):
     name: str
     url: str
     events: List[str]
+    expires_at: Optional[datetime] = None
 
 
 class WebhookUpdate(BaseModel):
@@ -14,6 +15,7 @@ class WebhookUpdate(BaseModel):
     url: Optional[str] = None
     events: Optional[List[str]] = None
     is_active: Optional[bool] = None
+    expires_at: Optional[datetime] = None
 
 
 class WebhookResponse(BaseModel):
@@ -22,6 +24,7 @@ class WebhookResponse(BaseModel):
     url: str
     events: List[str]
     is_active: bool
+    expires_at: Optional[datetime] = None
     created_at: datetime
     
     class Config:

@@ -67,6 +67,7 @@
             <div class="menu-item" onclick="showSection('subscriptions')">🔔 我的订阅</div>
             <div class="menu-item" onclick="showSection('myprofile')">👤 我的档案</div>
             <div class="menu-item" onclick="showSection('settings')">⚙️ 个人设置</div>
+            <div class="menu-item" onclick="showSection('integrations')">🔌 开放接口</div>
         </div>
         <div class="content">
             <!-- 概览 -->
@@ -134,6 +135,17 @@
                     <div id="account-info"></div>
                 </div>
             </div>
+
+            <div id="section-integrations" class="section">
+                <div class="card">
+                    <h3>API Token <button class="btn-primary-sm" style="float:right" onclick="showCreateToken()">+ 申请 Token</button></h3>
+                    <div id="api-tokens-list"><p class="empty">暂无 Token</p></div>
+                </div>
+                <div class="card">
+                    <h3>Webhook <button class="btn-primary-sm" style="float:right" onclick="showCreateWebhook()">+ 新建 Webhook</button></h3>
+                    <div id="webhooks-list"><p class="empty">暂无 Webhook</p></div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -149,6 +161,31 @@
                 <button class="btn-primary-sm" id="profile-submit-btn" onclick="createProfile()">提交</button>
             </div>
         </div>
+
+    <div id="modal-token" class="modal-overlay">
+        <div class="modal">
+            <h3>申请 API Token</h3>
+            <div class="form-group"><label>名称</label><input type="text" id="token-name"></div>
+            <div class="form-group"><label>权限范围（逗号分隔）</label><input type="text" id="token-scopes" placeholder="user:read,product:read"></div>
+            <div class="modal-actions">
+                <button class="btn-sm" onclick="closeModal('modal-token')">取消</button>
+                <button class="btn-primary-sm" onclick="createToken()">提交</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-webhook" class="modal-overlay">
+        <div class="modal">
+            <h3>创建 Webhook</h3>
+            <div class="form-group"><label>名称</label><input type="text" id="webhook-name"></div>
+            <div class="form-group"><label>回调地址</label><input type="text" id="webhook-url" placeholder="https://example.com/webhook"></div>
+            <div class="form-group"><label>事件（逗号分隔）</label><input type="text" id="webhook-events" placeholder="subscription.created,profile.updated"></div>
+            <div class="modal-actions">
+                <button class="btn-sm" onclick="closeModal('modal-webhook')">取消</button>
+                <button class="btn-primary-sm" onclick="createWebhook()">提交</button>
+            </div>
+        </div>
+    </div>
     </div>
 
     <!-- 新建订阅弹窗 - 不再需要，订阅直接在列表中操作 -->
@@ -168,10 +205,13 @@
             if (name === 'subscriptions') loadSubscriptions();
             if (name === 'myprofile') loadConsumerProfile();
             if (name === 'settings') loadAccountInfo();
+            if (name === 'integrations') { loadApiTokens(); loadWebhooks(); }
         }
 
         function closeModal(id) { document.getElementById(id).classList.remove('show'); }
         function showCreateProfile() { document.getElementById('profile-modal-title').textContent='创建消费者档案'; document.getElementById('profile-submit-btn').setAttribute('onclick','createProfile()'); document.getElementById('modal-profile').classList.add('show'); }
+        function showCreateToken() { document.getElementById('modal-token').classList.add('show'); }
+        function showCreateWebhook() { document.getElementById('modal-webhook').classList.add('show'); }
 
         async function api(url, method='GET', body=null) {
             const opts = {method, headers};
@@ -446,6 +486,105 @@
                     <tr><th>状态</th><td>${user.is_active?'✅ 活跃':'❌ 未激活'}</td></tr>
                     <tr><th>注册时间</th><td>${new Date(user.created_at).toLocaleString()}</td></tr>
                 </table>`;
+        }
+
+        async function loadApiTokens() {
+            const tokens = await apiSafe('/openapi/tokens');
+            const container = document.getElementById('api-tokens-list');
+            if (!tokens || tokens.length === 0) { container.innerHTML = '<p class="empty">暂无 Token</p>'; return; }
+            let html = '<table><tr><th>ID</th><th>名称</th><th>Token</th><th>Scopes</th><th>状态</th><th>操作</th></tr>';
+            tokens.forEach(t => {
+                html += `<tr>
+                    <td>${t.id}</td>
+                    <td>${t.name || '-'}</td>
+                    <td><code>${t.token}</code></td>
+                    <td>${(t.scopes || []).join(', ') || '-'}</td>
+                    <td>${t.is_revoked ? '<span class="badge badge-orange">已撤销</span>' : '<span class="badge badge-green">有效</span>'}</td>
+                    <td>${t.is_revoked ? '-' : `<button class="btn-sm" onclick="revokeToken(${t.id})">撤销</button>`}</td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function createToken() {
+            const scopes = (document.getElementById('token-scopes').value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const data = {
+                name: document.getElementById('token-name').value || null,
+                scopes: scopes
+            };
+            if (scopes.length === 0) { alert('请至少填写一个 scope'); return; }
+            try {
+                const result = await api('/openapi/tokens', 'POST', data);
+                if (result) {
+                    alert('✅ Token 申请成功，请妥善保存：\n' + result.token);
+                    closeModal('modal-token');
+                    loadApiTokens();
+                }
+            } catch(e) { alert(e.message); }
+        }
+
+        async function revokeToken(id) {
+            try {
+                const resp = await fetch('/openapi/tokens/' + id, { method: 'DELETE', headers, body: JSON.stringify({ reason: 'portal revoke' }) });
+                if (resp.ok || resp.status === 204) {
+                    alert('已撤销 Token');
+                    loadApiTokens();
+                } else {
+                    const e = await resp.json().catch(() => ({}));
+                    alert(e.detail || '撤销失败');
+                }
+            } catch(e) { alert('网络错误'); }
+        }
+
+        async function loadWebhooks() {
+            const hooks = await apiSafe('/webhooks');
+            const container = document.getElementById('webhooks-list');
+            if (!hooks || hooks.length === 0) { container.innerHTML = '<p class="empty">暂无 Webhook</p>'; return; }
+            let html = '<table><tr><th>ID</th><th>名称</th><th>URL</th><th>事件</th><th>状态</th><th>操作</th></tr>';
+            hooks.forEach(w => {
+                html += `<tr>
+                    <td>${w.id}</td>
+                    <td>${w.name}</td>
+                    <td style="max-width:260px;word-break:break-all">${w.url}</td>
+                    <td>${(w.events || []).join(', ')}</td>
+                    <td>${w.is_active ? '<span class="badge badge-green">启用</span>' : '<span class="badge badge-orange">停用</span>'}</td>
+                    <td><button class="btn-sm" onclick="deleteWebhook(${w.id})">删除</button></td>
+                </tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function createWebhook() {
+            const events = (document.getElementById('webhook-events').value || '').split(',').map(s => s.trim()).filter(Boolean);
+            const data = {
+                name: document.getElementById('webhook-name').value,
+                url: document.getElementById('webhook-url').value,
+                events: events
+            };
+            if (!data.name || !data.url || events.length === 0) { alert('请填写名称、URL 和事件'); return; }
+            try {
+                const result = await api('/webhooks', 'POST', data);
+                if (result) {
+                    alert('✅ Webhook 创建成功');
+                    closeModal('modal-webhook');
+                    loadWebhooks();
+                }
+            } catch(e) { alert(e.message); }
+        }
+
+        async function deleteWebhook(id) {
+            try {
+                const resp = await fetch('/webhooks/' + id, { method: 'DELETE', headers });
+                if (resp.ok || resp.status === 204) {
+                    alert('已删除 Webhook');
+                    loadWebhooks();
+                } else {
+                    const e = await resp.json().catch(() => ({}));
+                    alert(e.detail || '删除失败');
+                }
+            } catch(e) { alert('网络错误'); }
         }
 
         init();

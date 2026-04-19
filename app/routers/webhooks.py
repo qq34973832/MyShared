@@ -8,28 +8,44 @@ from app.schemas.webhook import (
     WebhookLogResponse, WebhookEventPayload
 )
 from app.dependencies.auth import get_current_user
-from app.dependencies.role import require_merchant
 from app.utils.webhook_signature import verify_webhook_signature, sign_webhook
-from app.models.merchant import Merchant
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+
+
+def _owned_webhook_name(user_id: int, name: str) -> str:
+    return f"[user:{user_id}] {name}"
+
+
+def _display_webhook_name(user_id: int, name: str) -> str:
+    prefix = f"[user:{user_id}] "
+    if name.startswith(prefix):
+        return name[len(prefix):]
+    return name
+
+
+def _serialize_webhook(user_id: int, webhook: Webhook) -> dict:
+    return {
+        "id": webhook.id,
+        "name": _display_webhook_name(user_id, webhook.name),
+        "url": webhook.url,
+        "events": webhook.events,
+        "is_active": webhook.is_active,
+        "created_at": webhook.created_at,
+    }
 
 
 @router.post("", response_model=WebhookResponse)
 def create_webhook(
     webhook_in: WebhookCreate,
-    merchant: User = Depends(require_merchant),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """创建 Webhook"""
-    merchant_info = db.query(Merchant).filter(Merchant.user_id == merchant.id).first()
-    if not merchant_info:
-        raise HTTPException(status_code=404, detail="Merchant not found")
-    
     from app.utils.helpers import generate_api_token
-    
+
     webhook = Webhook(
-        name=webhook_in.name,
+        name=_owned_webhook_name(current_user.id, webhook_in.name),
         url=webhook_in.url,
         events=webhook_in.events,
         secret=generate_api_token(32),
@@ -39,40 +55,41 @@ def create_webhook(
     db.add(webhook)
     db.commit()
     db.refresh(webhook)
-    
-    return webhook
+
+    return _serialize_webhook(current_user.id, webhook)
 
 
 @router.get("", response_model=list[WebhookResponse])
 def list_webhooks(
-    merchant: User = Depends(require_merchant),
+    current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """获取 Webhook 列表"""
-    merchant_info = db.query(Merchant).filter(Merchant.user_id == merchant.id).first()
-    if not merchant_info:
-        raise HTTPException(status_code=404, detail="Merchant not found")
-    
-    return db.query(Webhook).offset(skip).limit(limit).all()
+    prefix = f"[user:{current_user.id}] %"
+    webhooks = db.query(Webhook).filter(Webhook.name.like(prefix)).offset(skip).limit(limit).all()
+    return [_serialize_webhook(current_user.id, webhook) for webhook in webhooks]
 
 
 @router.put("/{webhook_id}", response_model=WebhookResponse)
 def update_webhook(
     webhook_id: int,
     webhook_in: WebhookUpdate,
-    merchant: User = Depends(require_merchant),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """更新 Webhook"""
     webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
-    
+
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    
+
+    if not webhook.name.startswith(f"[user:{current_user.id}] "):
+        raise HTTPException(status_code=403, detail="Webhook access denied")
+
     if webhook_in.name:
-        webhook.name = webhook_in.name
+        webhook.name = _owned_webhook_name(current_user.id, webhook_in.name)
     if webhook_in.url:
         webhook.url = webhook_in.url
     if webhook_in.events:
@@ -82,22 +99,25 @@ def update_webhook(
     
     db.commit()
     db.refresh(webhook)
-    
-    return webhook
+
+    return _serialize_webhook(current_user.id, webhook)
 
 
 @router.delete("/{webhook_id}", status_code=204)
 def delete_webhook(
     webhook_id: int,
-    merchant: User = Depends(require_merchant),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """删除 Webhook"""
     webhook = db.query(Webhook).filter(Webhook.id == webhook_id).first()
-    
+
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
-    
+
+    if not webhook.name.startswith(f"[user:{current_user.id}] "):
+        raise HTTPException(status_code=403, detail="Webhook access denied")
+
     db.delete(webhook)
     db.commit()
 
@@ -105,6 +125,7 @@ def delete_webhook(
 @router.get("/logs/{webhook_id}", response_model=list[WebhookLogResponse])
 def get_webhook_logs(
     webhook_id: int,
+    current_user: User = Depends(get_current_user),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db)
@@ -114,6 +135,9 @@ def get_webhook_logs(
     
     if not webhook:
         raise HTTPException(status_code=404, detail="Webhook not found")
+
+    if not webhook.name.startswith(f"[user:{current_user.id}] "):
+        raise HTTPException(status_code=403, detail="Webhook access denied")
     
     return db.query(WebhookLog).filter(
         WebhookLog.webhook_id == webhook_id

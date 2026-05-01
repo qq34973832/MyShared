@@ -16,6 +16,7 @@ class ChatMessageResponse(BaseModel):
     merchant_id: int
     content: str
     message_type: str
+    sender_role: str
     is_read: bool
     context: Optional[str]
     created_at: datetime

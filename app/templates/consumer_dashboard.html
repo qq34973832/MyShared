@@ -68,6 +68,8 @@
             <div class="menu-item" onclick="showSection('merchants', this)">🏪 商户列表</div>
             <div class="menu-item" onclick="showSection('subscriptions', this)">🔔 我的订阅</div>
             <div class="menu-item" onclick="showSection('myprofile', this)">👤 我的档案</div>
+            <div class="menu-item" onclick="showSection('comments', this)">💬 我的评论</div>
+            <div class="menu-item" onclick="showSection('chat', this)">🗨️ 咨询聊天</div>
             <div class="menu-item" onclick="showSection('settings', this)">⚙️ 个人设置</div>
             <div class="menu-item" onclick="showSection('integrations', this)">🔌 开放接口</div>
         </div>
@@ -138,6 +140,24 @@
                 </div>
             </div>
 
+            <div id="section-comments" class="section">
+                <div class="card">
+                    <h3>我的评论 <button class="btn-primary-sm" style="float:right" onclick="showCreateComment()">+ 发表评论</button></h3>
+                    <div id="my-comments-list"><p class="empty">暂无评论</p></div>
+                </div>
+            </div>
+
+            <div id="section-chat" class="section">
+                <div class="card">
+                    <h3>咨询商家</h3>
+                    <div style="display:flex;gap:8px;margin-bottom:12px">
+                        <input id="chat-merchant-id" type="number" placeholder="商户ID" style="padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;width:180px">
+                        <button class="btn-primary-sm" onclick="loadConsumerChat()">打开会话</button>
+                    </div>
+                    <div id="consumer-chat-detail"><p class="empty">请输入商户ID开始咨询</p></div>
+                </div>
+            </div>
+
             <div id="section-integrations" class="section">
                 <div class="card">
                     <h3>API Token <button class="btn-primary-sm" style="float:right" onclick="showCreateToken()">+ 申请 Token</button></h3>
@@ -148,6 +168,20 @@
                     <div id="webhooks-list"><p class="empty">暂无 Webhook</p></div>
                 </div>
             </div>
+
+    <div id="modal-comment" class="modal-overlay">
+        <div class="modal">
+            <h3>发表评论</h3>
+            <div class="form-group"><label>商品ID</label><input type="number" id="comment-product-id"></div>
+            <div class="form-group"><label>评分（1-5）</label><input type="number" id="comment-rating" min="1" max="5" value="5"></div>
+            <div class="form-group"><label>标题</label><input type="text" id="comment-title"></div>
+            <div class="form-group"><label>内容</label><input type="text" id="comment-content"></div>
+            <div class="modal-actions">
+                <button class="btn-sm" onclick="closeModal('modal-comment')">取消</button>
+                <button class="btn-primary-sm" onclick="createComment()">提交</button>
+            </div>
+        </div>
+    </div>
         </div>
     </div>
 
@@ -234,6 +268,8 @@
             if (name === 'merchants') loadMerchants();
             if (name === 'subscriptions') loadSubscriptions();
             if (name === 'myprofile') loadConsumerProfile();
+            if (name === 'comments') loadMyComments();
+            if (name === 'chat') document.getElementById('consumer-chat-detail').innerHTML = '<p class="empty">请输入商户ID开始咨询</p>';
             if (name === 'settings') loadAccountInfo();
             if (name === 'integrations') { loadApiTokens(); loadWebhooks(); }
         }
@@ -261,6 +297,7 @@
 
         function closeModal(id) { document.getElementById(id).classList.remove('show'); }
         function showCreateProfile() { document.getElementById('profile-modal-title').textContent='创建消费者档案'; document.getElementById('profile-submit-btn').setAttribute('onclick','createProfile()'); document.getElementById('modal-profile').classList.add('show'); }
+        function showCreateComment() { document.getElementById('modal-comment').classList.add('show'); }
         function showCreateToken() { document.getElementById('modal-token').classList.add('show'); }
         function showCreateWebhook() { document.getElementById('modal-webhook').classList.add('show'); }
 
@@ -363,6 +400,8 @@
                             <div style="display:flex;flex-direction:column;gap:6px;margin-left:16px">
                                 <button class="btn-primary-sm" onclick="subscribeProduct(${p.id})">🔔 订阅商品</button>
                                 <button class="btn-sm" onclick="subscribeMerchant(${p.merchant_id})">🏪 订阅商户</button>
+                                <button class="btn-sm" onclick="prefillComment(${p.id})">💬 评价</button>
+                                <button class="btn-sm" onclick="prefillChat(${p.merchant_id})">🗨️ 咨询</button>
                             </div>
                         </div>
                     </div>`;
@@ -388,11 +427,24 @@
                     <td>
                         <button class="btn-primary-sm" onclick="subscribeMerchant(${m.id})" style="margin-right:6px">🔔 订阅</button>
                         <button class="btn-sm" onclick="viewMerchantProducts(${m.id})">查看商品</button>
+                        <button class="btn-sm" onclick="prefillChat(${m.id})">咨询</button>
                     </td>
                 </tr>`;
             });
             html += '</table>';
             container.innerHTML = html;
+        }
+
+        function prefillComment(productId) {
+            document.getElementById('comment-product-id').value = productId;
+            showCreateComment();
+        }
+
+        function prefillChat(merchantId) {
+            document.getElementById('chat-merchant-id').value = merchantId;
+            const chatMenu = document.querySelector('.sidebar .menu-item:nth-child(7)');
+            showSection('chat', chatMenu);
+            loadConsumerChat();
         }
 
         async function viewMerchantProducts(merchantId) {
@@ -538,6 +590,66 @@
                     <tr><th>状态</th><td>${user.is_active?'✅ 活跃':'❌ 未激活'}</td></tr>
                     <tr><th>注册时间</th><td>${new Date(user.created_at).toLocaleString()}</td></tr>
                 </table>`;
+        }
+
+        async function loadMyComments() {
+            const comments = await apiSafe('/comments');
+            const container = document.getElementById('my-comments-list');
+            if (!comments || comments.length === 0) { container.innerHTML = '<p class="empty">暂无评论</p>'; return; }
+            let html = '<table><tr><th>ID</th><th>商品ID</th><th>评分</th><th>标题</th><th>内容</th><th>时间</th></tr>';
+            comments.forEach(c => {
+                html += `<tr><td>${c.id}</td><td>${c.product_id}</td><td>${c.rating}/5</td><td>${c.title || '-'}</td><td>${c.content}</td><td>${new Date(c.created_at).toLocaleString()}</td></tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function createComment() {
+            const data = {
+                product_id: parseInt(document.getElementById('comment-product-id').value),
+                rating: parseInt(document.getElementById('comment-rating').value),
+                title: document.getElementById('comment-title').value || null,
+                content: document.getElementById('comment-content').value,
+                image_urls: null
+            };
+            if (!data.product_id || !data.content || !data.rating) { alert('请填写商品ID、评分和内容'); return; }
+            try {
+                const result = await api('/comments', 'POST', data);
+                if (result) { alert('评论成功'); closeModal('modal-comment'); loadMyComments(); }
+            } catch(e) { alert(e.message); }
+        }
+
+        async function loadConsumerChat() {
+            const merchantId = parseInt(document.getElementById('chat-merchant-id').value);
+            if (!merchantId) { alert('请输入商户ID'); return; }
+            const messages = await apiSafe('/chat/messages/' + merchantId);
+            const container = document.getElementById('consumer-chat-detail');
+            let html = `<div style="margin-bottom:12px;font-weight:600">当前咨询商户ID：${merchantId}</div>`;
+            html += '<div style="max-height:320px;overflow:auto;border:1px solid #f0f0f0;padding:12px;border-radius:6px;margin-bottom:12px;background:#fafafa">';
+            if (!messages || messages.length === 0) {
+                html += '<p class="empty">暂无消息</p>';
+            } else {
+                const ordered = [...messages].reverse();
+                ordered.forEach(m => {
+                    const isMerchant = m.sender_role === 'merchant';
+                    html += `<div style="margin-bottom:10px;text-align:${isMerchant ? 'right' : 'left'}"><span style="display:inline-block;max-width:70%;padding:8px 12px;border-radius:8px;background:${isMerchant ? '#f9f0ff' : '#fff'};border:1px solid #ddd"><div style="font-size:12px;color:#999;margin-bottom:4px">${isMerchant ? '商户' : '我'} · ${new Date(m.created_at).toLocaleString()}</div><div>${m.content}</div></span></div>`;
+                });
+            }
+            html += '</div>';
+            html += `<div style="display:flex;gap:8px"><input id="consumer-chat-content" type="text" placeholder="输入咨询内容" style="flex:1;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px"><button class="btn-primary-sm" onclick="sendConsumerChat(${merchantId})">发送</button></div>`;
+            container.innerHTML = html;
+        }
+
+        async function sendConsumerChat(merchantId) {
+            const content = document.getElementById('consumer-chat-content').value;
+            if (!content) { alert('请输入消息内容'); return; }
+            try {
+                const result = await api('/chat/messages', 'POST', { merchant_id: merchantId, content, message_type: 'text', context: 'general' });
+                if (result) {
+                    document.getElementById('consumer-chat-content').value = '';
+                    loadConsumerChat();
+                }
+            } catch(e) { alert(e.message); }
         }
 
         async function loadApiTokens() {

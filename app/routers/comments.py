@@ -8,6 +8,8 @@ from app.schemas.comment import (
     CommentCreate, CommentResponse, CommentUpdate
 )
 from app.dependencies.auth import get_current_user
+from app.dependencies.role import require_merchant
+from app.models.merchant import Merchant
 
 router = APIRouter(prefix="/comments", tags=["comments"])
 
@@ -42,6 +44,46 @@ def create_comment(
     db.refresh(comment)
     
     return comment
+
+
+@router.get("", response_model=list[CommentResponse])
+def list_my_comments(
+    current_user: User = Depends(get_current_user),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """获取当前用户自己的评论列表"""
+    return (
+        db.query(Comment)
+        .filter(Comment.user_id == current_user.id)
+        .order_by(Comment.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/merchant/me", response_model=list[CommentResponse])
+def list_merchant_comments(
+    merchant_user: User = Depends(require_merchant),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """获取当前商户收到的评论列表"""
+    merchant = db.query(Merchant).filter(Merchant.user_id == merchant_user.id).first()
+    if not merchant:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+
+    return (
+        db.query(Comment)
+        .filter(Comment.merchant_id == merchant.id)
+        .order_by(Comment.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/product/{product_id}", response_model=list[CommentResponse])

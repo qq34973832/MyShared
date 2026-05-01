@@ -13,6 +13,7 @@ class ChatMessage(BaseModel):
     # 消息内容
     content = Column(Text, nullable=False)
     message_type = Column(String(20), default="text")  # text, image, file
+    sender_role = Column(String(20), default="user")  # user, merchant
     
     # 附件
     attachment_url = Column(String(500), nullable=True)

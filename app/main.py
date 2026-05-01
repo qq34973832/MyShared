@@ -30,6 +30,9 @@ if str(engine.url).startswith("sqlite"):
         columns = [row[1] for row in conn.execute(text("PRAGMA table_info(webhooks)"))]
         if "expires_at" not in columns:
             conn.execute(text("ALTER TABLE webhooks ADD COLUMN expires_at DATETIME"))
+        chat_columns = [row[1] for row in conn.execute(text("PRAGMA table_info(chat_messages)"))]
+        if "sender_role" not in chat_columns:
+            conn.execute(text("ALTER TABLE chat_messages ADD COLUMN sender_role VARCHAR(20) DEFAULT 'user'"))
 
 seed_initial_data()
 

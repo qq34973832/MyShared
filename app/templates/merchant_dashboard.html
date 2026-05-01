@@ -69,6 +69,8 @@
             <div class="menu-item" onclick="showSection('bids', this)">💰 竞价管理</div>
             <div class="menu-item" onclick="showSection('categories', this)">📂 分类管理</div>
             <div class="menu-item" onclick="showSection('profile', this)">👤 个人设置</div>
+            <div class="menu-item" onclick="showSection('comments', this)">💬 评论管理</div>
+            <div class="menu-item" onclick="showSection('chat', this)">🗨️ 客户聊天</div>
             <div class="menu-item" onclick="showSection('integrations', this)">🔌 开放接口</div>
         </div>
         <div class="content">
@@ -83,6 +85,24 @@
                 <div class="card">
                     <h3>最近商品</h3>
                     <div id="recent-products-list"></div>
+                </div>
+            </div>
+
+            <div id="section-comments" class="section">
+                <div class="card">
+                    <h3>收到的商品评论</h3>
+                    <div id="merchant-comments-list"><p class="empty">暂无评论</p></div>
+                </div>
+            </div>
+
+            <div id="section-chat" class="section">
+                <div class="card">
+                    <h3>客户会话</h3>
+                    <div id="merchant-conversations-list"><p class="empty">暂无会话</p></div>
+                </div>
+                <div class="card">
+                    <h3>聊天详情</h3>
+                    <div id="merchant-chat-detail"><p class="empty">请选择左侧会话</p></div>
                 </div>
             </div>
 
@@ -271,6 +291,8 @@
             if (name === 'bids') { loadBiddableProducts(); loadMyBids(); }
             if (name === 'categories') loadCategories();
             if (name === 'profile') loadProfile();
+            if (name === 'comments') loadMerchantComments();
+            if (name === 'chat') loadMerchantConversations();
             if (name === 'integrations') { loadApiTokens(); loadWebhooks(); }
         }
 
@@ -357,6 +379,59 @@
                     <tr><th>评分</th><td>${shop.rating}/5</td></tr>
                     <tr><th>商品数</th><td>${shop.total_products}</td></tr>
                 </table>`;
+        }
+
+        async function loadMerchantComments() {
+            const comments = await api('/comments/merchant/me');
+            const container = document.getElementById('merchant-comments-list');
+            if (!comments || comments.length === 0) { container.innerHTML = '<p class="empty">暂无评论</p>'; return; }
+            let html = '<table><tr><th>ID</th><th>商品ID</th><th>评分</th><th>标题</th><th>内容</th><th>时间</th></tr>';
+            comments.forEach(c => {
+                html += `<tr><td>${c.id}</td><td>${c.product_id}</td><td>${c.rating}/5</td><td>${c.title || '-'}</td><td>${c.content}</td><td>${new Date(c.created_at).toLocaleString()}</td></tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function loadMerchantConversations() {
+            const conversations = await api('/chat/merchant/conversations');
+            const container = document.getElementById('merchant-conversations-list');
+            if (!conversations || conversations.length === 0) { container.innerHTML = '<p class="empty">暂无会话</p>'; return; }
+            let html = '<table><tr><th>用户</th><th>最后消息</th><th>未读</th><th>时间</th><th>操作</th></tr>';
+            conversations.forEach(c => {
+                html += `<tr><td>${c.username}</td><td>${c.last_message || '-'}</td><td>${c.unread_count}</td><td>${new Date(c.last_message_at).toLocaleString()}</td><td><button class="btn-sm" onclick="openMerchantConversation(${c.user_id}, '${String(c.username).replace(/'/g, "\\'")}')">打开</button></td></tr>`;
+            });
+            html += '</table>';
+            container.innerHTML = html;
+        }
+
+        async function openMerchantConversation(userId, username) {
+            const messages = await api('/chat/merchant/messages/' + userId);
+            const container = document.getElementById('merchant-chat-detail');
+            let html = `<div style="margin-bottom:12px;font-weight:600">当前会话：${username}</div>`;
+            html += '<div style="max-height:320px;overflow:auto;border:1px solid #f0f0f0;padding:12px;border-radius:6px;margin-bottom:12px;background:#fafafa">';
+            if (!messages || messages.length === 0) {
+                html += '<p class="empty">暂无消息</p>';
+            } else {
+                messages.forEach(m => {
+                    const isMerchant = m.sender_role === 'merchant';
+                    html += `<div style="margin-bottom:10px;text-align:${isMerchant ? 'right' : 'left'}"><span style="display:inline-block;max-width:70%;padding:8px 12px;border-radius:8px;background:${isMerchant ? '#e6f4ff' : '#fff'};border:1px solid #ddd"><div style="font-size:12px;color:#999;margin-bottom:4px">${isMerchant ? '商户' : '用户'} · ${new Date(m.created_at).toLocaleString()}</div><div>${m.content}</div></span></div>`;
+                });
+            }
+            html += '</div>';
+            html += `<div style="display:flex;gap:8px"><input id="merchant-reply-content" type="text" placeholder="输入回复内容" style="flex:1;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px"><button class="btn-primary-sm" onclick="sendMerchantReply(${userId}, '${String(username).replace(/'/g, "\\'")}')">发送</button></div>`;
+            container.innerHTML = html;
+            loadMerchantConversations();
+        }
+
+        async function sendMerchantReply(userId, username) {
+            const content = document.getElementById('merchant-reply-content').value;
+            if (!content) { alert('请输入消息内容'); return; }
+            const result = await api('/chat/merchant/messages/' + userId, 'POST', { merchant_id: 0, content, message_type: 'text', context: 'general' });
+            if (result) {
+                document.getElementById('merchant-reply-content').value = '';
+                openMerchantConversation(userId, username);
+            }
         }
 
         async function loadProducts() {
